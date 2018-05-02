@@ -27,7 +27,7 @@ During an experiment, you can
 
 ### Easy Setup
 
-You can run the interactive `bash` script `serversetup.sh` from a command line to make the calls associated with server setup. 
+You can run the interactive `bash` script `serversetup.sh` from a command line to make the calls associated with server setup (1-4 above). 
 
 ### curl Examples
 
