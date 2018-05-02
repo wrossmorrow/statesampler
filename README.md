@@ -1,6 +1,8 @@
 # statesampler
 
-A simple `node.js` server to sample from a rows of data in a Google Sheet to provide data for Qualtrics questions. There are four sampling methods: 
+A simple `node.js` server to sample from a rows of data in a Google Sheet to provide data for survey questions. We were motivated by the need to inform custom question scripts in [Qualtrics](https://www.qualtrics.com/) surveys, although this code is independent of Qualtrics. 
+
+There are currently four sampling methods: 
 
 * standard-uniformly, 
 * "balanced-uniformly" relative to some max,
@@ -95,7 +97,7 @@ This example is provided in `qualtrics.js`.
 
 ### node Server
 
-You need `node.js` and `npm` to install this server. 
+You need `node.js` and `npm` to install this server. Instructions are available [here](https://www.npmjs.com/get-npm). 
 
 With `node.js` and `npm` you can install this package by running
 ```
