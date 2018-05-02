@@ -25,6 +25,10 @@ During an experiment, you can
 1. Sample reviews one-by-one, returning data that can be used to construct questions in Qualtrics (_during_ experiment)
 2. Report client-side errors during question loads back to the experimenter (_during_ experiment)
 
+### Easy Setup
+
+You can run the interactive `bash` script `serversetup.sh` from a command line to make the calls associated with server setup. 
+
 ### curl Examples
 
 You can use [`curl`](https://curl.haxx.se/) from the command line to play around: 
