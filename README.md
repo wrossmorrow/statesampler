@@ -7,7 +7,7 @@ A simple `node.js` server to sample from a rows of data in a Google Sheet to pro
 * exponentially-weighted samples away from large counts, 
 * and reciprocally-weighted samples away from large counts
 
-The first is trivial to implement within standard `javascript`, although this is plausibly more efficient because the server pre-loads all reviews. This server was _really_ written to enable question generation when the _count_ of times a row was sampled is important. If so, we have to maintain a "gloabl state" across questions served requiring a central server. 
+The first is trivial to implement within standard `javascript`, although this is plausibly more efficient because the server pre-loads all reviews. This server was _really_ written to enable question generation when the _count_ of times a row was sampled is important. If so, we have to maintain a "global state" across questions served requiring a central server. 
 
 ## Use
 
