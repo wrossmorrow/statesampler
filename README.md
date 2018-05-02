@@ -18,12 +18,12 @@ This server is setup to allow you to make (hopefully simple) API calls. Before y
 1. Initialize a Google Sheets API object with an API key you get from enabling the sheets API in your google account
 2. Load a particular sheet by specifying a `spreadsheetId` and `range` 
 3. Optionally load a header, from the same spreadsheet or a different one, used to encode responses
-3. Specify a sampling method, the default being the "balanced-uniform" strategy
+4. Specify a sampling method, the default being the "balanced-uniform" strategy
 
 During an experiment, you can
 
-1. Sample reviews one-by-one, returning data that can be used to construct questions in Qualtrics (_during_ experiment)
-2. Report client-side errors during question loads back to the experimenter (_during_ experiment)
+5. Sample reviews one-by-one, returning data that can be used to construct questions in Qualtrics (_during_ experiment)
+6. Report client-side errors during question loads back to the experimenter (_during_ experiment)
 
 ### Easy Setup
 
