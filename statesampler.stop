@@ -1,0 +1,4 @@
+#!/bin/bash 
+# statesampler.stop
+
+kill $( cat statesampler.pid )

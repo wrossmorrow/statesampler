@@ -1,0 +1,24 @@
+# systemd unit file for State Sampler server
+#
+# place in /etc/systemd/system
+# systemctl enable statesampler.service
+# systemctl start statesampler.service
+
+[Unit]
+Description=State Sampler Server for Qualtrics Surveys
+After=network.target
+
+[Service]
+User=root
+Group=root
+Type=forking
+StandardOutput=syslog
+StandardError=syslog
+WorkingDirectory=/home/ubuntu/statesampler
+ExecStart=/home/ubuntu/statesampler/statesampler.start
+PIDFile=/home/ubuntu/statesampler/statesampler.pid
+ExecStop=/home/ubuntu/statesampler/statesampler.stop
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

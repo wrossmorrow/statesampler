@@ -1,0 +1,6 @@
+#!/bin/bash 
+# statesampler.start
+
+T=$( date +"%FT%T" | sed 's/:/-/g' )
+node server.js 2> error-$T.log > info-$T.log & 
+echo $! > statesampler.pid
