@@ -170,13 +170,16 @@ and check for errors
 $ sudo systemctl status apache2.service
 ```
 
+## License
+
+See LICENSE.md. 
 
 ## Contact
 
-morrowwr@gmail.com
+[morrowwr@gmail.com](mailtomorrowwr@gmail.com)
 
-wrossmorrow.com
+[wrossmorrow.com](https://wrossmorrow.com)
 
-web.stanford.edu/~morrowwr
+[web.stanford.edu/~morrowwr](https://web.stanford.edu/~morrowwr)
 
-www.linkedin.com/in/wrossmorrow
+[www.linkedin.com/in/wrossmorrow](https://www.linkedin.com/in/wrossmorrow)
