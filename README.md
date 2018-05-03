@@ -170,7 +170,6 @@ and check for errors
 ```
 $ sudo systemctl status apache2.service
 ```
-<<<<<<< HEAD
 You can run the script `apache/setup.sh` with your DNS name and webmaster email, like 
 ```
 $ ./apache/setup.sh an.address.com someone@gmail.com

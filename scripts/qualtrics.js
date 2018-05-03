@@ -14,11 +14,11 @@ Qualtrics.SurveyEngine.addOnload( function()
 			// process data recieved as JSON data
 			data.json().then( json => {
 
-					// Replace question's text container with a custom format of the response 
+					// Replace question's text container with a custom format of the response
 					container.innerHTML = ...
 
 					// store the Row number as embedded data so we have it later for response analysis
-					Qualtrics.SurveyEngine.setEmbeddedData( 'R' + questionIndex , json.Row );
+					Qualtrics.SurveyEngine.setEmbeddedData( 'R1' , json.Row );
 
 				} )
 			} , error => {
