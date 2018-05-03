@@ -175,7 +175,6 @@ You can run the script `apache/setup.sh` with your DNS name and webmaster email,
 $ ./apache/setup.sh an.address.com someone@gmail.com
 ``` 
 to make the default changes to `apache`. Note, though, that these `.conf` files presume some defaults you should make sure are appropriate for your environment. 
-=======
 
 ## License
 
