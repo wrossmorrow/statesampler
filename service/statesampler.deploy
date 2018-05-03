@@ -1,0 +1,5 @@
+sudo cp service/statesampler.service /etc/systemd/system
+sudo systemd daemon-reload
+sudo systemd enable statesampler.service
+sudo systemd start statesampler.service
+sudo systemd status statesampler.service

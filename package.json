@@ -1,10 +1,14 @@
 {
    "name": "statesampler",
    "version": "1.0.0",
-   "description": "",
+   "description": "A simple node.js server to sample from a list of rows in a Google Sheet.",
    "main": "server.js",
+   "repository": "https://github.com/wrossmorrow/statesampler",
    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1"
+      "test": "echo \"Error: no test specified\" && exit 1",
+      "start": "./service/statesampler.start",
+      "stop": "./service/statesampler.stop",
+      "deploy": "./service/statesampler.deploy"
    },
    "author": "W. Ross Morrow",
    "license": "ISC",
@@ -13,6 +17,7 @@
       "cors": "^2.8.4",
       "express": "^4.16.3",
       "googleapis": "^29.0.0",
+      "npm": "^6.0.0",
       "rng-js": "^1.0.1"
    }
 }

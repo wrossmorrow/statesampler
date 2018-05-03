@@ -9,7 +9,9 @@ There are currently four sampling methods:
 * exponentially-weighted samples away from large counts, 
 * and reciprocally-weighted samples away from large counts
 
-The first is trivial to implement within standard `javascript`, although this is plausibly more efficient because the server pre-loads all reviews. This server was _really_ written to enable question generation when the _count_ of times a row was sampled is important. If so, we have to maintain a "global state" across questions served requiring a central server. 
+The first is trivial to implement within standard `javascript`, although this is plausibly more efficient here because the server pre-loads all data in the sheet. A client needs only ask for one row at a time, and thus loads only those relevant to it. 
+
+However this server was _really_ written to enable question generation when the _number_ of times a row was sampled is important. If so, we have to maintain a "global state" across rows served requiring a central server. 
 
 ## Use
 
@@ -27,7 +29,9 @@ During an experiment, you can
 
 ### Easy Setup
 
-You can run the interactive `bash` script `serversetup.sh` from a command line to make the calls associated with server setup (1-4 above). 
+You can run the interactive `bash` script `scripts/serversetup.sh` from a command line to make the calls associated with server setup (1-4 above). 
+
+There is also a `python` version, `scripts/serversetup.py`, under construction. 
 
 ### curl Examples
 
@@ -95,7 +99,7 @@ Qualtrics.SurveyEngine.addOnload( function()
 			} );
 } );
 ```
-This example is provided in `qualtrics.js`. 
+This example is provided in `scripts/qualtrics.js`. 
 
 ## Setup
 
@@ -109,14 +113,22 @@ npm install
 ```
 in the repo directory. I run with
 ```
-$ ./statesampler.start
+$ npm start
 ... do other stuff, until we need to stop with:
-$ ./statesampler.stop
+$ npm stop
+```
+To check for startup errors, you can run the following script: 
+```
+$ ls -tlh log/error* | head -1 | awk '{ print $NF" size: "$5 }'
+```
+If everything is ok, you should see something like
+```
+log/error-2018-05-03T06-34-36.log size: 0B
 ```
 
-Or, in production, use [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/). Make sure `statesampler.service` is correct for your deployment, copy into place with
+In production, use [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/). Make sure `service/statesampler.service` is correct for your deployment, copy into place with
 ```
-$ sudo cp statesampler.service /etc/systemd/system
+$ sudo cp service/statesampler.service /etc/systemd/system
 ```
 and reload/launch/enable: 
 ```
@@ -125,7 +137,12 @@ $ sudo systemd enable statesampler.service
 $ sudo systemd start statesampler.service
 $ sudo systemd status statesampler.service
 ```
-Hopefully you don't hit errors. 
+Those steps (presuming `service/statesampler.service` is correct) are packaged in a script `service/statesampler.deploy` that will get executed by running
+```
+$ npm run-script deploy
+```
+
+Hopefully you don't hit errors. Create an issue if you do. 
 
 ### HTTPS and SSL Certificates
 
@@ -133,7 +150,7 @@ Qualtrics uses `HTTPS` and thus so must you to not generate mixed-content reques
 
 ### Apache
 
-To run with `apache`, modify the `vhost.conf` and `vhost_ssl.conf` files by entering your DNS name in place of `my.server.com` as well as the webmaster email address (if desired). These need to be placed in `/etc/apache/sites-available` and enabled with 
+To run with `apache`, modify the `apache/vhost.conf` and `apache/vhost_ssl.conf` files by entering your DNS name in place of `my.server.com` as well as the webmaster email address (if desired). These need to be placed in `/etc/apache/sites-available` and enabled with 
 
 ```
 $ sudo a2ensite vhost vhost_ssl
@@ -152,6 +169,7 @@ and check for errors
 ```
 $ sudo systemctl status apache2.service
 ```
+
 
 ## Contact
 

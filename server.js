@@ -51,15 +51,6 @@ const corsOptions = {
 };
 */
 
-var sheets = undefined , 
-    header = undefined , 
-    rows = [] , 
-    counts = [] , 
-    maxResponsesPerRow = 5 , 
-    strategy = 'b' , 
-    sample = sample_b , 
-    rowRequestCount = 0;
-
 const logger = ( s ) => { console.log( ( new Date( Date.now() ).toISOString() ) + " | " + s ); }
 
 const sampleRow_u = function() { 
@@ -97,6 +88,16 @@ const sampleRow_r = function() {
     } );
     return R;
 }
+
+// global variables, modifiable during server operation
+var sheets = undefined , 
+    header = undefined , 
+    rows = [] , 
+    counts = [] , 
+    maxResponsesPerRow = 5 , 
+    strategy = 'b' , 
+    sample = sampleRow_b , 
+    rowRequestCount = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
