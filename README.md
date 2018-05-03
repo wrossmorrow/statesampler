@@ -63,7 +63,7 @@ $ curl https://my.server.com/statesampler/api/sample
 
 ### Qualtrics/javscript Fetch Example
 
-I would only use `javascript` to get sampled reviews within Qualtrics questions. That is, I wouldn't use it to setup the data for the experiment, although you could within `node.js`. 
+I would only use `javascript` to get sampled reviews within Qualtrics questions. That is, I wouldn't use it to setup the data for the experiment, although you could within `node.js` with either other scripts or the interactive mode. 
 
 For that use case, a sample call might look like 
 
@@ -87,7 +87,7 @@ Qualtrics.SurveyEngine.addOnload( function()
 					container.innerHTML = ...
 
 					// store the Row number as embedded data so we have it later for response analysis
-					Qualtrics.SurveyEngine.setEmbeddedData( 'R' + questionIndex , json.Row );
+					Qualtrics.SurveyEngine.setEmbeddedData( 'R1' , json.Row );
 
 				} )
 			} , error => {
@@ -137,10 +137,11 @@ $ sudo systemd enable statesampler.service
 $ sudo systemd start statesampler.service
 $ sudo systemd status statesampler.service
 ```
-Those steps (presuming `service/statesampler.service` is correct) are packaged in a script `service/statesampler.deploy` that will get executed by running
+Those steps (presuming `service/statesampler.service` is correct) are packaged in a script `service/statesampler.deploy` that can be executed by running
 ```
 $ npm run-script deploy
 ```
+or, if you like, run directly (but watch out for where you run it from). 
 
 Hopefully you don't hit errors. Create an issue if you do. 
 
@@ -169,7 +170,11 @@ and check for errors
 ```
 $ sudo systemctl status apache2.service
 ```
-
+You can run the script `apache/setup.sh` with your DNS name and webmaster email, like 
+```
+$ ./apache/setup.sh an.address.com someone@gmail.com
+``` 
+to make the default changes to `apache`. Note, though, that these `.conf` files presume some defaults you should make sure are appropriate for your environment. 
 
 ## Contact
 
