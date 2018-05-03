@@ -170,18 +170,24 @@ and check for errors
 ```
 $ sudo systemctl status apache2.service
 ```
+<<<<<<< HEAD
 You can run the script `apache/setup.sh` with your DNS name and webmaster email, like 
 ```
 $ ./apache/setup.sh an.address.com someone@gmail.com
 ``` 
 to make the default changes to `apache`. Note, though, that these `.conf` files presume some defaults you should make sure are appropriate for your environment. 
+=======
+
+## License
+
+Apache 2.0 with modifications. You are welcome to use this software under the normal Apache 2.0 conditions for non-commercial purposes. Contact the author for licensing for commercial purposes. See LICENSE.md. 
 
 ## Contact
 
-morrowwr@gmail.com
+[morrowwr@gmail.com](mailtomorrowwr@gmail.com)
 
-wrossmorrow.com
+[wrossmorrow.com](https://wrossmorrow.com)
 
-web.stanford.edu/~morrowwr
+[web.stanford.edu/~morrowwr](https://web.stanford.edu/~morrowwr)
 
-www.linkedin.com/in/wrossmorrow
+[www.linkedin.com/in/wrossmorrow](https://www.linkedin.com/in/wrossmorrow)
