@@ -160,7 +160,7 @@ Or you can just replace the content in the default sites enabled for `HTTP` and 
 
 You also need to make sure the right modules are enabled with, e.g., 
 ```
-$ sudo a2enmod ssl proxy proxy_http
+$ sudo a2enmod ssl proxy proxy_http rewrite
 ```
 restart `apache`
 ```
