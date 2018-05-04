@@ -22,6 +22,6 @@ sed "s/my.server.com/${SERVERDNS}/g;s/webmaster@localhost/${WEBMASTER}/g" vhost_
 
 a2ensite 000-default.conf 000-default-le-ssl.conf
 
-a2enmod ssl proxy proxy_http
+a2enmod ssl proxy proxy_http rewrite
 systemctl restart apache2.service
 systemctl status apache2.service
