@@ -293,7 +293,7 @@ app.get( '/counts' , (req,res) => {
 // over the same sheet. Same effect as reloading the sheet. 
 app.post( '/reset' , (req,res) => { 
     logger( "POST /reset request " );
-    for( var i = 0 ; i < reviews.length ; i++ ) { counts[i] = 0.0; }
+    for( var i = 0 ; i < counts.length ; i++ ) { counts[i] = 0.0; }
     res.send(); 
 } );
 
