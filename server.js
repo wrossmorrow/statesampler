@@ -112,9 +112,34 @@ const sampleRow_r = function() {
     return R;
 }
 
+function extendedLexLessThan( s1 , s2 ) {
+    if( s1.length < s2.length ) { return true; }
+    if( s1.length > s2.length ) { return false; }
+    return s1 < s2;
+}
+
+function getNameFromNumber( n ) {
+    var nmod = n % 26;
+    var chr = String.fromCharCode( 65 + nmod );
+    var nfr = Math.floor( n / 26.0 );
+    return ( nfr > 0 ? getNameFromNumber( nfr - 1 ) + chr : chr );
+}
+
+function listRange( start , finish ) {
+    var istart = 0 , ifinish = 0;
+    var nstart = getNameFromNumber( istart );
+    while( extendedLexLessThan( nstart , start ) ) { istart += 1; nstart = getNameFromNumber( istart ); }
+    ifinish = istart; 
+    nfinish = getNameFromNumber( ifinish );
+    while( extendedLexLessThan( nfinish , finish ) ) { ifinish += 1; nfinish = getNameFromNumber( ifinish ); }
+    return [istart,ifinish];
+}
+
 // global variables, modifiable during server operation
 var sheets = undefined , 
     header = [] , 
+    rowRange = [1,1] , 
+    colRange = ['A','A'] , 
     rows = [] , 
     counts = [] , 
     maxResponsesPerRow = 5 , 
@@ -182,12 +207,23 @@ app.post( '/sheet/load' , ( req , res ) => {
         counts = new Array( rows.length );
         for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
 
-        // initialize header
-        console.log( /(.*)!([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range ) );
+        // initialize header by parsing range spec sent in
+        var match = /(.*)!([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range );
+        sheetName = match[1];
+        colRange[0] = match[2];
+        colRange[1] = match[4];
+        rowRange[0] = match[3];
+        rowRange[1] = match[5];
+
+        var iColRange = listRange( colRange[0] , colRange[1] );
+        for( var i = iColRange[0] ; i <= iColRange[1] ; i++ ) {
+            header.push( getNameFromNumber( i ) );
+        }
 
     });
 
-    // don't respond to the caller without loading sheet... which is an async call
+    // don't respond to the caller without actually loading sheet... which is an async call
+    // so we can't respond here. need to know if this succeeds. 
 
 }); 
 
@@ -281,12 +317,8 @@ app.get( '/sample' , (req,res) => {
     var R = sampleRow();
     rowRequestCount += 1;
     logger( "GET  /sample request " + rowRequestCount + " sampled row " + R );
-    var response = { Row : R }
-    if( header ) {
-        Object.keys( header ).map( (k,i) => { response[k] = rows[R][i]; } );
-    } else {
-        rows[R].map( (r,i) => { response[ 'C' + i ] = r; } );
-    }
+    var response = { Row : R + rowRange[0] }
+    header.map( (k,i) => { response[k] = rows[R][i]; } );
     res.json( response );
     counts[R]++;
 
