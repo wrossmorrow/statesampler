@@ -1,6 +1,6 @@
 {
    "name": "statesampler",
-   "version": "1.0.1",
+   "version": "1.0.2",
    "description": "A simple node.js server to sample from a list of rows in a Google Sheet.",
    "main": "server.js",
    "repository": "https://github.com/wrossmorrow/statesampler",
