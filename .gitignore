@@ -2,6 +2,8 @@
 # don't track logs
 /log
 log/*.log
+service/log
+service/log/*.log
 
 # don't track PID files
 *.pid

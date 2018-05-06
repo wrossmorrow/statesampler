@@ -2,7 +2,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * 
- *  statesampler start script
+ *  statesampler API server
  *
  *  Copyright 2018 William Ross Morrow
  *
@@ -50,7 +50,7 @@ const { google } = require( 'googleapis' );
 
 var app = _express();
 
-app.set( 'port' , 4050 );
+app.set( 'port' , 5000 );
 app.use( _bodyParser.json() );
 app.use( _bodyParser.urlencoded({ extended: false }) );
 
