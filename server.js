@@ -183,7 +183,7 @@ app.post( '/sheet/load' , ( req , res ) => {
         for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
 
         // initialize header
-        console.log( /([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range ) );
+        console.log( /(.*)!([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range ) );
 
     });
 
