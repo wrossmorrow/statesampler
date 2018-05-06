@@ -212,8 +212,8 @@ app.post( '/sheet/load' , ( req , res ) => {
         sheetName = match[1];
         colRange[0] = match[2];
         colRange[1] = match[4];
-        rowRange[0] = match[3];
-        rowRange[1] = match[5];
+        rowRange[0] = parseInt( match[3] );
+        rowRange[1] = parseInt( match[5] );
 
         var iColRange = listRange( colRange[0] , colRange[1] );
         for( var i = iColRange[0] ; i <= iColRange[1] ; i++ ) {
