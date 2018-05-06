@@ -1,0 +1,578 @@
+<html lang="en">
+<head>
+
+	<title>statesampler Setup</title>
+
+	<meta charset="utf-8" />
+	<meta name="description" content="statesampler setup page" />
+	<meta name="W. Ross Morrow" content="GSB CIRCLE RSS" />
+
+	<link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet" />
+	<link href="https://fonts.googleapis.com/css?family=Source+Serif+Pro" rel="stylesheet" />
+
+	<style>
+		body {
+		    margin: 20;
+		    font-family: 'Source Sans Pro' , sans-serif;
+		    color: #2F2424;
+		}
+		input[type=password] {
+			font-size: 11pt;
+		    width: 100%;
+		    padding: 10px;
+		    margin: 8px 0;
+		    box-sizing: border-box;
+		}
+		input[type=password]:focus { 
+			outline: none;
+		    background-color: #F9F6EF;
+		}
+		input[type=text] {
+			font-size: 11pt;
+		    width: 100%;
+		    padding: 10px;
+		    margin: 8px 0;
+		    box-sizing: border-box;
+		}
+		input[type=text]:focus { 
+			outline: none;
+		    background-color: #F9F6EF;
+		}
+		button { 
+			outline: none;
+		}
+		p code {
+			font-size: 12pt;
+		}
+		td code {
+			font-size: 12pt;
+		}
+		a {
+			color: #8c1515;
+		}
+		a:hover {
+			font-weight: bold;
+			color: #8c1515;
+		}
+		.header {
+			font-weight: bold;
+			padding-top: 20px;
+		}
+		.headerhr {
+			border-top:solid 1px #9d9573;
+			border-width: 2px;
+		}
+		.footer {
+			font-size: 10pt;
+			color: #98999b;
+		}
+		.footer a { 
+			color: #98999b;
+		}
+		.footer a:hover { 
+			font-weight: bold;
+			color: #79797a
+		}
+		.label {
+			width: 125;
+			text-align: right;
+		}
+		.note {
+			font-size: -1em;
+			color: #544948;
+			padding-left: 10;
+		}
+		.sample {
+			color: #b3995d;
+		}
+		.button {
+			padding: 10;
+			font-size: 10pt;
+		    font-family: 'Source Sans Pro' , sans-serif;
+			border: solid 1px #dad7cb;
+			text-align: center;
+			width: 100;
+		}
+		.button:hover {
+		    background-color: #F9F6EF;
+		    cursor: pointer;
+		}
+		.action {
+			margin-top: 10;
+			padding-top: 10;
+			border-top:solid 1px #dad7cb;
+			text-align: right;
+		}
+		.response {
+			margin-top: 10;
+			padding-top: 10;
+			border-top:solid 1px #dad7cb;
+			font-size: -2em;
+			color: #dad7cb;
+			padding-left: 10;
+			text-align: left;
+		}
+		.error {
+			color: #8c1515;
+		}
+	</style>
+
+
+	<script>
+
+		var ssapiaddress = "";
+
+		function retrieve( id ) {
+		    return document.getElementById( id ).value;
+		}
+
+		function showOK( id ) {
+			document.getElementById( id ).innerHTML = "HTTP Response Looks OK";
+		}
+
+		function showError( id , error ) {
+	    	document.getElementById(id).innerHTML = "<table><tbody><tr><td style=\"padding-top:3px;vertical-align:top;\"><svg fill=\"#000000\" height=\"20\" viewBox=\"0 0 25 25\" width=\"20\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0h24v24H0V0z\" fill=\"none\"/><path d=\"M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z\" stroke=\"#8c1515\" stroke-width=\"0.5\" fill=\"#8c1515\"/></svg></td><td class=\"error\"><b>ERROR:</b> " + error + "</td></tr></tbody></table>";
+		}
+
+		function setSSAPI() {
+			ssapiaddress = retrieve('SSAPIAddress');
+			try {
+				window.fetch( "https://" + ssapiaddress )
+					.then( 
+						data => {
+							console.log( "response" , data ); 
+							if( data.status == 200 ) {
+					    		document.getElementById('SSAPIResponse').innerHTML = "HTTP Response Looks OK";
+							} else { showError('SSAPIResponse',"(" + data.status + ") " + data.statusText ); }
+					    } , 
+					    error => { showError('SSAPIResponse',error); }
+					);
+			} catch( error ) { showError('SSAPIResponse',error); }
+		}
+
+		function initGAPI() {
+			try {
+				window.fetch( "https://" + ssapiaddress + "/sheets/init" , 
+								{ headers : { 'Content-type'  : 'application/json' ,
+					                            'Accept'        : 'application/json' } , 
+					                mode    : 'cors' ,  
+					                method  : 'post' , 
+					                body    : JSON.stringify( { apikey : retrieve('GAPIKey') } ) } )
+					.then( 
+						data => {
+							if( data.status == 200 ) { showOK('GAPIInitResponse'); }
+					    	else { showError('GAPIInitResponse',"(" + data.status + ") " + data.statusText ); }
+					    } , 
+					    error => { showError('GAPIInitResponse',error); }
+					);
+			} catch( error ) { showError('GAPIInitResponse',error); }
+		}
+
+		function loadSheet() {
+			var data = { spreadsheetId : retrieve('DataSheetID') , 
+							range : retrieve('DataSheet') + "!" + retrieve('DataRange') }
+			try {
+				window.fetch( "https://" + ssapiaddress + "/sheet/load" , 
+								{ headers : { 'Content-type'  : 'application/json' ,
+					                            'Accept'        : 'application/json' } , 
+					                mode    : 'cors' ,  
+					                method  : 'post' , 
+					                body    : JSON.stringify( data ) } )
+					.then( 
+						data => {
+							if( data.status == 200 ) { showOK('SheetResponse'); }
+					    	else { showError('SheetResponse',"(" + data.status + ") " + data.statusText ); }
+						} , 
+					    error => {
+					    	document.getElementById('SheetResponse').innerHTML = "<span class=\"error\">ERROR</span>";
+					    }
+					);
+			} catch( error ) { showError('SheetResponse',error); }
+		}
+
+		function loadHeader() {
+			var data = { spreadsheetId : retrieve('HeaderSheetID') , 
+							range : retrieve('HeaderSheet') + "!" + retrieve('HeaderRange') }
+			try {
+				window.fetch( "https://" + ssapiaddress + "/sheet/header" , 
+								{ headers : { 'Content-type'  : 'application/json' ,
+					                            'Accept'        : 'application/json' } , 
+					                mode    : 'cors' ,  
+					                method  : 'post' , 
+					                body    : JSON.stringify( data ) } )
+					.then( 
+						data => { 
+							if( data.status == 200 ) { showOK('HeaderResponse'); }
+					    	else { showError('HeaderResponse',"(" + data.status + ") " + data.statusText ); }
+						} , 
+					    error => { showError('HeaderResponse',error); }
+					);
+			} catch( error ) { showError('HeaderResponse',error); }
+		}
+
+		function sample() { 
+			try {
+				window.fetch( "https://" + ssapiaddress + "/get/review" )
+					.then( 
+						data => {
+					    	document.getElementById('SampleResponse').innerHTML = "HTTP Response Looks OK";
+							if( data.status == 200 ) {
+					    		data.json()
+									.then( 
+										json => { document.getElementById('testField').innerHTML = JSON.stringify(json) } , 
+										error => console.log( error )
+									) 
+							} else { showError('SampleResponse',"(" + data.status + ") " + data.statusText ); }
+						} , 
+					    error => { showError('SampleResponse',error); }
+					);
+			} catch( error ) { showError('SampleResponse',error); }
+		}
+
+		function reset() {
+			try {
+				window.fetch( "https://" + ssapiaddress + "/reset" , 
+							{ headers : { 'Content-type'  : 'application/json' ,
+				                            'Accept'        : 'application/json' } , 
+				                mode    : 'cors' ,  
+				                method  : 'post'  } )
+					.then( 
+						data => {
+							document.getElementById('testField').innerHTML = "";
+							if( data.status == 200 ) { showOK('ResetResponse'); }
+							else { showError('ResetResponse',"(" + data.status + ") " + data.statusText ); }
+					    } , 
+					    error => { showError('ResetResponse',error); }
+					);
+			} catch( error ) { showError('ResetResponse',error); }
+		}
+
+	</script>
+
+</head>
+<body>
+
+	<h1><code>statesampler</code> Setup</h1>
+
+	<table width="75%" style="border-top:2px solid #2F2424">
+		<tbody>
+
+			<tr><td>&nbsp;</td></tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr>
+				<td colspan="2">
+					<p>
+						<code>statesampler</code> is a backend API to manage data sampling for
+						custom (<code>javascript</code>) question generation in online survey 
+						platforms, like <a href="https://www.qualtrics.com/">Qualtrics</a>, using 
+						data from a <a href="https://www.google.com/sheets/about/">Google Sheet</a>. 
+					</p>
+					<p>
+						While it should be fairly general-purpose, the API is meant to provide a way
+						to sample custom question data depending on a <em>global state</em>. For example, 
+						sampling when each packet of custom question data should only appear a fixed
+						number of times or less. But you could use this only to <em>efficiently</em>
+						uniformly randomly sample custom question data, without <em>a-priori</em> 
+						question data segmentation or loading <em>all</em> the data in <em>every</em> 
+						survey client. 
+					</p>
+					<p>
+						This page walks through setup of the <code>statesampler</code> API for
+						development work or a particular experiment run. It presumes you have 
+						followed the <a href="https://github.com/wrossmorrow/statesampler">server 
+						setup steps</a> already, but doesn't 
+						assume anything about where the server is hosted. 
+					</p>
+					<p>
+						The source thus also has examples 
+						of how to use <code>javascript</code> to interact with the API. 
+					</p>
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">0. Locate Your <code>statesampler</code> API</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					<p>Put in the address where your <code>statesampler</code> server you installed can be reached. This 
+						will be used in the calls below. 
+					</p>
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td class="label">https://</td>
+				<td><input type="text" id="SSAPIAddress" /></td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="SSAPIResponse"></td>
+								<td class="action"><button class="button" onclick="setSSAPI()">Set Address</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">1. Initialize the Google Sheets API</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					You need to connect the server to an authorized <a href="https://www.google.com/sheets/about/">Google Sheets</a> API using an API key. Google has instructions for getting an API key
+					<a href="https://developers.google.com/sheets/api/guides/authorizing#APIKey">here</a>.
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td class="label">Sheets API Key: </td>
+				<td><input type="password" id="GAPIKey" /></td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="GAPIInitResponse"></td>
+								<td class="action"><button class="button" onclick="initGAPI()">Initialize</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">2. Load a Data Sheet</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					You need to connect the API to an actual Google Sheet to read data from it. 
+					To do this you need the Spreadsheet ID, a sheet name, and a range. The ID is in the
+					sheets URL; specifically, the sheet at 
+					<blockquote>
+						<a href="https://docs.google.com/spreadsheets/d/1mkZV-HqNhW3jIprvaO6rMSlMswyqFdGng7qbtqhQj1Y/edit#gid=0">
+							https://docs.google.com/spreadsheets/d/1mkZV-HqNhW3jIprvaO6rMSlMswyqFdGng7qbtqhQj1Y/edit#gid=0
+						</a>
+					</blockquote>
+					has the ID
+					<blockquote>
+						<code>1mkZV-HqNhW3jIprvaO6rMSlMswyqFdGng7qbtqhQj1Y</code>
+					</blockquote>
+					The sheet name is like "<code>Sheet1</code>" or similar, found in the tab-like objects in the bottom
+					of your sheet. This is <em>not</em> the name you might have given your spreadsheet in your 
+					Google Drive (e.g., "Example for statesampler" in the sheet link above). 
+					The range is the set of rows and columns to read, in "Excel-like" form; for 
+					example, "<code>A2:D6</code>". 
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td class="label">Spreadsheet ID:</td>
+				<td><input type="text" id="DataSheetID" /></td>
+			</tr>
+			<tr>
+				<td class="label">Sheet Name:</td>
+				<td><input type="text" id="DataSheet" /></td>
+			</tr>
+			<tr>
+				<td class="label">Range:</td>
+				<td><input type="text" id="DataRange" /></td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="SheetResponse"></td>
+								<td class="action"><button class="button" onclick="loadData()">Load Sheet</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">3. Load a Header (optional)</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					You have the option of loading a header to more clearly specify your data fields in 
+					responses returned by the API. By default, the API will return <code>JSON</code> objects 
+					like
+					<blockquote>
+						<code>{"Row":x,"A":...,"C":...,"D":...}</code>
+					</blockquote>
+					using the "Excel-like" column names you specified for the range when you load a sheet. 
+					If, however, your sheet has column labels in a header, <em>even in a different sheet</em>, 
+					you can load that here by specifying a Spreadsheet ID, sheet name, column range, and 
+					row in which labels can be found. 
+				</td>
+			</tr>
+			<tr>
+				<td class="label">Spreadsheet ID: </td>
+				<td><input type="text" id="HeaderSheetID" /></td>
+			</tr>
+			<tr>
+				<td class="label">Sheet Name:</td>
+				<td><input type="text" id="HeaderSheet" /></td>
+			</tr>
+			<tr>
+				<td class="label">Column Range:</td>
+				<td><input type="text" id="HeaderRange" /></td>
+			</tr>
+			<tr>
+				<td class="label">Header Row:</td>
+				<td><input type="text" id="HeaderRow" /></td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="HeaderResponse"></td>
+								<td class="action"><button class="button" onclick="loadHeader()">Load Header</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">4. Test</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					Click "Sample" to grab a review from the server and display the response below! 
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					<span class="sample" id="testField">
+
+					</span>
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="SampleResponse"></td>
+								<td class="action"><button class="button" onclick="sample()">Sample</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">5. Reset</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					Click "Reset Counts" to reset the server's internal 
+					counts vector to zero. <em>You should <b>always</b> do this before running
+					an experiment, and <b>never</b> do this during an experiment!</em>
+				</td>
+			</tr>
+			<tr><td>&nbsp;</td></tr>
+			<tr>
+				<td colspan="2">
+					<table width="100%">
+						<tbody>
+							<tr>
+								<td class="response" id="ResetResponse"></td>
+								<td class="action"><button class="button" onclick="reset()">Reset Counts</button></td>
+							</tr>
+						</tbody>
+					</table>
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td colspan="2" class="header">Summary</td></tr>
+			<tr><td colspan="2" class="headerhr">&nbsp;</td></tr>
+			<tr>
+				<td colspan="2" class="note">
+					I hope all that worked! If not, 
+					<a href="https://github.com/wrossmorrow/statesampler/issues">submit an issue</a>. 
+				</td>
+			</tr>
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+
+			<tr><td>&nbsp;</td></tr>
+			<tr><td colspan="2" class="response"></td></tr>
+			<tr>
+				<td class="footer" colspan="2">
+					<p><code>statesampler</code> 
+						(<a href="https://github.com/wrossmorrow/statesampler">github</a>, 
+						<a href="https://www.npmjs.com/package/statesampler">npm</a>, 
+						<a href="https://www.wrossmorrow.org/statesampler">demo</a>), 
+						&copy; 2018 William Ross Morrow
+					</p>
+					<p>
+						Licensed under a modified Apache License, Version 2.0 (the "License");
+						you may not use this file except in compliance with the License.
+						You may obtain a copy of the License at
+						<blockquote>
+							<a href="https://github.com/wrossmorrow/statesampler/LICENSE.md">
+								https://github.com/wrossmorrow/statesampler/LICENSE.md
+							</a>
+						</blockquote>
+						Unless required by applicable law or agreed to in writing, software
+						distributed under the License is distributed on an "AS IS" BASIS,
+						WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+						See the License for the specific language governing permissions and
+						limitations under the License.
+					</p>
+				</td>
+			</tr>
+
+
+			<!-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+			 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -->
+		</tbody>
+	</table>
+
+</body>
+</html>

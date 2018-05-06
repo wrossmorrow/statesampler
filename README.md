@@ -126,7 +126,7 @@ If everything is ok, you should see something like
 log/error-2018-05-03T06-34-36.log size: 0B
 ```
 
-In production, use [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/). Make sure `service/statesampler.service` is correct for your deployment, copy into place with
+In production, use a deployment tool like [PM2](http://pm2.keymetrics.io/) or [`systemd`](https://www.freedesktop.org/wiki/Software/systemd/). I prefer the latter, and thus have provided templates for that. Make sure `service/statesampler.service` is correct for your deployment, copy into place with
 ```
 $ sudo cp service/statesampler.service /etc/systemd/system
 ```
@@ -143,7 +143,7 @@ $ npm run-script deploy
 ```
 or, if you like, run directly (but watch out for where you run it from). 
 
-Hopefully you don't hit errors. Create an issue if you do. 
+Hopefully you don't hit errors. [Create an issue](https://github.com/wrossmorrow/statesampler/issues) if you do. 
 
 ### HTTPS and SSL Certificates
 
