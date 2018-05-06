@@ -216,6 +216,7 @@ app.post( '/sheet/load' , ( req , res ) => {
         rowRange[1] = parseInt( match[5] );
 
         var iColRange = listRange( colRange[0] , colRange[1] );
+        header = [];
         for( var i = iColRange[0] ; i <= iColRange[1] ; i++ ) {
             header.push( getNameFromNumber( i ) );
         }
