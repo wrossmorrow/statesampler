@@ -273,7 +273,7 @@ app.get( '/sample' , (req,res) => {
     rowRequestCount += 1;
     logger( "GET  /sample request " + rowRequestCount + " sampled row " + R );
     var response = { Row : R }
-    if( headers ) {
+    if( header ) {
         Object.keys( header ).map( (k,i) => { response[k] = rows[R][i]; } );
     } else {
         rows[R].map( (r,i) => { response[ 'C' + i ] = r; } );
