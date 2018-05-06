@@ -220,6 +220,8 @@ app.post( '/sheet/load' , ( req , res ) => {
             header.push( getNameFromNumber( i ) );
         }
 
+        console.log( header );
+
     });
 
     // don't respond to the caller without actually loading sheet... which is an async call
