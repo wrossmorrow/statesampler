@@ -119,7 +119,7 @@ var sheets = undefined ,
     counts = [] , 
     maxResponsesPerRow = 5 , 
     strategy = 'b' , 
-    sample = sampleRow_b , 
+    sampleRow = sampleRow_b , 
     rowRequestCount = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
