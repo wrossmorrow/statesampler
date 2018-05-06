@@ -114,7 +114,7 @@ const sampleRow_r = function() {
 
 // global variables, modifiable during server operation
 var sheets = undefined , 
-    header = undefined , 
+    header = [] , 
     rows = [] , 
     counts = [] , 
     maxResponsesPerRow = 5 , 
@@ -145,6 +145,50 @@ app.post( '/sheets/init' , ( req , res ) => {
     logger( "POST /sheets/init request (apikey sent not logged)" );
     sheets = google.sheets( { version : 'v4' , auth : req.body.apikey } );
     res.send();
+}); 
+
+// load actual google sheet, using body as the Google sheets request spec
+app.post( '/sheet/load' , ( req , res ) => {
+
+    // for example, called with data like 
+    // 
+    //      req.body ~ { spreadsheetId : '...' , range : 'Sheet1!A2:D6' }
+    //
+    // that is, the request body (data) should contain the sheets request. 
+
+    logger( "POST /sheet/load request for spreadsheet " 
+                + req.body.spreadsheetId + " and range " + req.body.range );
+
+    if( !sheets ) { 
+        res.write( "Cannot load a sheet before initializing Google API (POST to /sheets/init)" );
+        res.status(500).send();
+        return;
+    }
+
+    sheets.spreadsheets.values.get( req.body , ( err , response ) => {
+
+        // respond to caller based on status
+        if( err ) { 
+            console.log( err ); 
+            res.status(500).write( JSON.stringify(err) ).send(); 
+            return;
+        }
+        
+        // respond ok if we're here
+        res.send();
+
+        // actually load rows and set counts vector
+        rows = Object.assign( [] , response.data.values );
+        counts = new Array( rows.length );
+        for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
+
+        // initialize header
+        console.log( /([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range ) );
+
+    });
+
+    // don't respond to the caller without loading sheet... which is an async call
+
 }); 
 
 // load actual google sheet, using body as the Google sheets request spec
@@ -181,7 +225,7 @@ app.post( '/sheet/header' , ( req , res ) => {
             return;
         } else { res.send(); }
 
-        // actually load rows and set counts vector
+        // actually set header (for fields in each row)
         header = Object.assign( [] , response.data.values[0] );
 
     });
@@ -190,43 +234,8 @@ app.post( '/sheet/header' , ( req , res ) => {
 
 }); 
 
-// load actual google sheet, using body as the Google sheets request spec
-app.post( '/sheet/load' , ( req , res ) => {
-
-    // for example, called with data like 
-    // 
-    //      req.body ~ { spreadsheetId : '...' , range : 'Sheet1!A2:D6' }
-    //
-    // that is, the request body (data) should contain the sheets request. 
-
-    logger( "POST /sheet/load request for spreadsheet " 
-                + req.body.spreadsheetId + " and range " + req.body.range );
-
-    if( !sheets ) { 
-        res.write( "Cannot load a sheet before initializing Google API (POST to /sheets/init)" );
-        res.status(500).send();
-        return;
-    }
-
-    sheets.spreadsheets.values.get( req.body , ( err , response ) => {
-
-        // respond to caller based on status
-        if( err ) { 
-            console.log( err ); 
-            res.status(500).write( JSON.stringify(err) ).send(); 
-            return;
-        } else { res.send(); }
-
-        // actually load rows and set counts vector
-        rows = Object.assign( [] , response.data.values );
-        counts = new Array( rows.length );
-        for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
-
-    });
-
-    // don't respond to the caller without loading sheet... which is an async call
-
-}); 
+// get header that will be used to label response fields
+app.get( '/header' , ( req , res ) => { res.json( header ); } );
 
 // set the sampling strategy
 app.post( '/strategy/:s' , ( req , res ) => {

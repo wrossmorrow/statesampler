@@ -16,3 +16,6 @@ service/log/*.log
 
 # don't track project files
 *.sublime*
+
+# don't track demo
+ssdemo.html
