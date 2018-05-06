@@ -141,9 +141,8 @@
 					.then( 
 						data => {
 							console.log( "response" , data ); 
-							if( data.status == 200 ) {
-					    		document.getElementById('SSAPIResponse').innerHTML = "HTTP Response Looks OK";
-							} else { showError('SSAPIResponse',"(" + data.status + ") " + data.statusText ); }
+							if( data.status == 200 ) { showOK('SSAPIResponse'); }
+					    	else { showError('SSAPIResponse',"(" + data.status + ") " + data.statusText ); }
 					    } , 
 					    error => { showError('SSAPIResponse',error); }
 					);
@@ -160,8 +159,10 @@
 					                body    : JSON.stringify( { apikey : retrieve('GAPIKey') } ) } )
 					.then( 
 						data => {
-							if( data.status == 200 ) { showOK('GAPIInitResponse'); }
-					    	else { showError('GAPIInitResponse',"(" + data.status + ") " + data.statusText ); }
+							if( data.status == 200 ) { 
+								showOK('GAPIInitResponse'); 
+								document.getElementById( 'GAPIKey' ).value = '';
+							} else { showError('GAPIInitResponse',"(" + data.status + ") " + data.statusText ); }
 					    } , 
 					    error => { showError('GAPIInitResponse',error); }
 					);
