@@ -8,6 +8,9 @@ service/log/*.log
 # don't track PID files
 *.pid
 
+# don't track conf files
+conf*.json
+
 # don't track autosaved files
 *.*~
 

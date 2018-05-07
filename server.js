@@ -32,11 +32,32 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-const _express = require( 'express' );
-const _bodyParser = require( 'body-parser' );
-const _cors = require( 'cors' );
-// const _rng = require( 'rng-js' );
-const { google } = require( 'googleapis' );
+const protect = ( a , b ) => { return ( a ? a : b ); }
+
+const _express      = require( 'express' );
+const _bodyParser   = require( 'body-parser' );
+const _cors         = require( 'cors' );
+const _config       = require( 'config.json' )( protect( process.env.CONF_FILE , 'conf.json' ) );
+// const _rng       = require( 'rng-js' );
+const { google }    = require( 'googleapis' );
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * CONFIGURATION
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+var port = protect( process.env.PORT , protect( _config.port , 5000 ) );
+
+var defaultSamplingStrategy = protect( process.env.STRATEGY , protect( _config.strategy , 'b' ) );
+
+var gapiKey = protect( process.env.GAPIKEY , protect( _config.googleAPIKey , undefined ) );
+var sheetId = protect( process.env.SHEETID , protect( _config.spreadsheetId , undefined ) );
+var shrange = protect( process.env.SHRANGE , protect( _config.sheetNameRange , undefined ) );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -50,7 +71,7 @@ const { google } = require( 'googleapis' );
 
 var app = _express();
 
-app.set( 'port' , 5000 );
+app.set( 'port' , port );
 app.use( _bodyParser.json() );
 app.use( _bodyParser.urlencoded({ extended: false }) );
 
@@ -143,9 +164,18 @@ var sheets = undefined ,
     rows = [] , 
     counts = [] , 
     maxResponsesPerRow = 5 , 
-    strategy = 'b' , 
+    strategy = defaultSamplingStrategy , 
     sampleRow = sampleRow_b , 
     rowRequestCount = 0;
+
+
+switch( strategy ) { 
+    case 'u' : sampleRow = sampleRow_u; break;
+    case 'b' : sampleRow = sampleRow_b; break;
+    case 'e' : sampleRow = sampleRow_e; break;
+    case 'r' : sampleRow = sampleRow_r; break;
+    default  : return;
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
