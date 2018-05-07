@@ -168,13 +168,54 @@ var sheets = undefined ,
     sampleRow = sampleRow_b , 
     rowRequestCount = 0;
 
-
 switch( strategy ) { 
     case 'u' : sampleRow = sampleRow_u; break;
     case 'b' : sampleRow = sampleRow_b; break;
     case 'e' : sampleRow = sampleRow_e; break;
     case 'r' : sampleRow = sampleRow_r; break;
     default  : return;
+}
+
+// uses sheets, so put after variable declaration
+function loadSheet( spec , onLoad , onError ) {
+
+    if( ! sheets ) { 
+        if( onError ) { onError( "ValueError: No sheets object initialized." ); } 
+        return; 
+    }
+
+    sheets.spreadsheets.values.get( spec , ( error , response ) => {
+
+        // respond to caller based on status
+        if( error ) { 
+            if( onError ) { onError( error ); }
+            return;
+        }
+
+        // 
+        if( onLoad ) { onLoad(); }
+
+        // actually load rows and set counts vector
+        rows = Object.assign( [] , response.data.values );
+        counts = new Array( rows.length );
+        for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
+
+        // initialize header by parsing range spec sent in
+        var match = /(.*)!([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( spec.range );
+        sheetName = match[1];
+        colRange[0] = match[2];
+        colRange[1] = match[4];
+        rowRange[0] = parseInt( match[3] );
+        rowRange[1] = parseInt( match[5] );
+
+        var iColRange = listRange( colRange[0] , colRange[1] );
+        header = [];
+        for( var i = iColRange[0] ; i <= iColRange[1] ; i++ ) {
+            header.push( getNameFromNumber( i ) );
+        }
+
+    });
+
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -220,42 +261,11 @@ app.post( '/sheet/load' , ( req , res ) => {
         return;
     }
 
-    sheets.spreadsheets.values.get( req.body , ( err , response ) => {
+    loadSheet(  req.body , 
+                () => res.send() , 
+                (e) => { res.status(500).write( JSON.stringify(e) ); res.send(); } );
 
-        // respond to caller based on status
-        if( err ) { 
-            console.log( err ); 
-            res.status(500).write( JSON.stringify(err) ).send(); 
-            return;
-        }
-        
-        // respond ok if we're here
-        res.send();
-
-        // actually load rows and set counts vector
-        rows = Object.assign( [] , response.data.values );
-        counts = new Array( rows.length );
-        for( var i = 0 ; i < rows.length ; i++ ) { counts[i] = 0.0; }
-
-        // initialize header by parsing range spec sent in
-        var match = /(.*)!([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/.exec( req.body.range );
-        sheetName = match[1];
-        colRange[0] = match[2];
-        colRange[1] = match[4];
-        rowRange[0] = parseInt( match[3] );
-        rowRange[1] = parseInt( match[5] );
-
-        var iColRange = listRange( colRange[0] , colRange[1] );
-        header = [];
-        for( var i = iColRange[0] ; i <= iColRange[1] ; i++ ) {
-            header.push( getNameFromNumber( i ) );
-        }
-
-        console.log( header );
-
-    });
-
-    // don't respond to the caller without actually loading sheet... which is an async call
+    // DON'T respond to the caller without actually loading sheet... which is an async call
     // so we can't respond here. need to know if this succeeds. 
 
 }); 
@@ -389,6 +399,22 @@ app.post( '/error' , (req,res) => {
 
 server = app.listen( app.get('port') );
 logger( "listening on port " + app.get('port') );
+
+if( gapiKey ) { 
+    logger( "  setting default Google API connection (using api key from conf.json)" );
+    sheets = google.sheets( { version : 'v4' , auth : gapiKey } );
+    if( sheetId ) {
+        if( shrange ) {
+            logger( "  loading default spreadsheet" );
+            loadSheet(  { "spreadsheetId" : sheetId , "range" : shrange } , 
+                        () => logger( "    loaded default spreadsheet " + sheetId + " " + shrange ) , 
+                        (e) => logger( "    spreadsheet load error: " + e ) );
+        } else {
+
+        }
+    } 
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
