@@ -2,6 +2,8 @@
 
 A simple `node.js` server to sample from a rows of data in a Google Sheet to provide data for survey questions. We were motivated by the need to inform custom question scripts in [Qualtrics](https://www.qualtrics.com/) surveys, although this code is independent of Qualtrics. 
 
+You can see a live demo [here](https://www.wrossmorrow.org/statesampler/demo.html). 
+
 There are currently four sampling methods: 
 
 * standard-uniformly, 
