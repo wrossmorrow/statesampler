@@ -182,7 +182,8 @@
 					.then( 
 						data => {
 							if( data.status == 200 ) { showOK('SheetResponse'); }
-					    	else { showError('SheetResponse',"(" + data.status + ") " + data.statusText ); }
+		else {
+		console.log(data); showError('SheetResponse',"(" + data.status + ") " + data.statusText ); }
 						} , 
 					    error => {
 					    	document.getElementById('SheetResponse').innerHTML = "<span class=\"error\">ERROR</span>";

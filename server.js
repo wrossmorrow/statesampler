@@ -240,6 +240,7 @@ app.get( '/' , (req,res) => {
 app.post( '/sheets/init' , ( req , res ) => {
     logger( "POST /sheets/init request (apikey sent not logged)" );
     sheets = google.sheets( { version : 'v4' , auth : req.body.apikey } );
+    // console.log( sheets );
     res.send();
 }); 
 
@@ -263,7 +264,11 @@ app.post( '/sheet/load' , ( req , res ) => {
 
     loadSheet(  req.body , 
                 () => res.send() , 
-                (e) => { res.status(500).write( JSON.stringify(e) ); res.send(); } );
+                (e) => {
+		    // JSON.stringify( e.errors );
+		    res.status(e.code).write( JSON.stringify(e.errors) );
+		    res.send();
+    } );
 
     // DON'T respond to the caller without actually loading sheet... which is an async call
     // so we can't respond here. need to know if this succeeds. 
@@ -347,16 +352,17 @@ app.get( '/strategy' , ( req , res ) => {
     }
 });
 
-// get an actual row (requires sheet loaded)
-app.get( '/sample' , (req,res) => {
+const sampleRowRouteAction = (req,res) => {
 
+    var sid = req.query.survey , rid = req.query.response; 
+    
     if( rows.length == 0 ) {
-        logger( "GET  /sample request before sheet object loaded." );
-        res.write( "Don't appear to have a sheet object to sample from yet." )
-        res.status(500).send();
-        return;
+	logger( "GET  /sample request before sheet object loaded." );
+	res.write( "Don't appear to have a sheet object to sample from yet." )
+	res.status(500).send();
+	return;
     }
-
+    
     var R = sampleRow();
     rowRequestCount += 1;
     logger( "GET  /sample request " + rowRequestCount + " sampled row " + R );
@@ -365,7 +371,12 @@ app.get( '/sample' , (req,res) => {
     res.json( response );
     counts[R]++;
 
-});
+}
+
+// get an actual row (requires sheet loaded)
+app.get( '/sample' , sampleRowRouteAction );
+app.get( '/sample/:sid' , sampleRowRouteAction );
+app.get( '/sample/:sid/:rid' , sampleRowRouteAction );
 
 // get the vector of counts (debugging, basically)
 app.get( '/counts' , (req,res) => { 
