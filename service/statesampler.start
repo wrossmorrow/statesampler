@@ -4,7 +4,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #
-# 	statesampler start script
+# 	statesampler systemd service start script
 # 
 #   Copyright 2018 William Ross Morrow
 #
@@ -24,7 +24,9 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
-mkdir -p service/log
-T=$( date +"%FT%T" | sed 's/:/-/g' )
-node server.js 2> service/log/error-$T.log > service/log/info-$T.log & 
-echo $! > service/statesampler.pid
+HD=${STATESAMPLER_HOME_DIR:-"./"}
+LD=${STATESAMPLER_LOG_DIR:-"./"}
+mkdir -p ${LD}
+T=$( date +"%FT%T" | sed 's/:/-/g' | sed 's/T/-/g' )
+node ${HD}/server.js 2> ${LD}/error-$T.log > ${LD}/info-$T.log & 
+echo $!  > ${HD}/service/statesampler.pid

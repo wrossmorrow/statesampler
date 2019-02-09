@@ -1,11 +1,10 @@
 #!/bin/bash 
-# statesampler.stop
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #
-# 	statesampler stop script
+# 	statesampler systemd service stop script
 # 
 #   Copyright 2018 William Ross Morrow
 #
@@ -25,4 +24,11 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
-kill $( cat service/statesampler.pid )
+HD=${STATESAMPLER_HOME_DIR:-"./"}
+LD=${STATESAMPLER_LOG_DIR:-"./"}
+if [[ -f ${HD}/service/statesampler.pid ]] ; then 
+	kill $( cat ${HD}/service/statesampler.pid )
+	rm ${HD}/service/statesampler.pid
+fi
+for f in ${LD}/info-*.log  ; do gzip $f ; done
+for f in ${LD}/error-*.log ; do gzip $f ; done

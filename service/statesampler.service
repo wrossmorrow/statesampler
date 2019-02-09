@@ -33,15 +33,16 @@ Description=State Sampler Server for Qualtrics Surveys
 After=network.target
 
 [Service]
-User=root
-Group=root
+User=statesampler
+Group=statesampler
 Type=forking
 StandardOutput=syslog
 StandardError=syslog
-WorkingDirectory=/home/ubuntu/statesampler
-ExecStart=/home/ubuntu/statesampler/service/statesampler.start
-PIDFile=/home/ubuntu/statesampler/service/statesampler.pid
-ExecStop=/home/ubuntu/statesampler/service/statesampler.stop
+WorkingDirectory=/var/www/html/statesampler
+EnvironmentFile=/var/www/html/statesampler/service/statesampler.env
+ExecStart=/var/www/html/statesampler/service/statesampler.start
+PIDFile=/var/www/html/statesampler/service/statesampler.pid
+ExecStop=/var/www/html/statesampler/service/statesampler.stop
 Restart=always
 
 [Install]

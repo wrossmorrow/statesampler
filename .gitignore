@@ -20,5 +20,5 @@ conf*.json
 # don't track project files
 *.sublime*
 
-# don't track demo
-ssdemo.html
+# don't track demo (but do track html in general)
+html/ssdemo.html
