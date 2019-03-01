@@ -28,5 +28,5 @@ HD=${STATESAMPLER_HOME_DIR:-"./"}
 LD=${STATESAMPLER_LOG_DIR:-"./"}
 mkdir -p ${LD}
 T=$( date +"%FT%T" | sed 's/:/-/g' | sed 's/T/-/g' )
-node ${HD}/server.js 2> ${LD}/error-$T.log > ${LD}/info-$T.log & 
+node ${HD}/src/server.js 2> ${LD}/error-$T.log > ${LD}/info-$T.log & 
 echo $!  > ${HD}/service/statesampler.pid

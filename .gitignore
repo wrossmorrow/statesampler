@@ -5,6 +5,9 @@ log/*.log
 service/log
 service/log/*.log
 
+gsheet.json
+test.sh
+
 # don't track PID files
 *.pid
 

@@ -41,6 +41,9 @@ const _config       = require( 'config.json' )( protect( process.env.CONF_FILE ,
 // const _rng       = require( 'rng-js' );
 const { google }    = require( 'googleapis' );
 
+const Samplers      = require( './src/samplers.js' );
+const Datasets      = require( './src/datasets.js' );
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -166,7 +169,14 @@ var sheets = undefined ,
     maxResponsesPerRow = 5 , 
     strategy = defaultSamplingStrategy , 
     sampleRow = sampleRow_b , 
-    rowRequestCount = 0;
+    rowRequestCount = 0 , 
+    sampleStore = {};
+
+// options for operations
+var options = {
+    no_repeats : true , 
+    unique_counts : true 
+};
 
 switch( strategy ) { 
     case 'u' : sampleRow = sampleRow_u; break;
@@ -222,6 +232,120 @@ function loadSheet( spec , onLoad , onError ) {
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * 
+ * SAMPLING ROUTINE
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+var datasets = {} , samplers = {};
+
+// load data
+const loadData = ( req , res ) => {
+
+    if( ! req.body.type ){
+        res.status( 400 ).send( "BadRequest: loadData operation requires a request body with a \"type\" field." );
+        return;
+    }
+
+    if( /^gsheet/.test( req.body.type ) ) { return loadGoogleSheet( req , res ); }
+    else if( /^csv/.test( req.body.type ) ) { return loadCSVData( req , res ); }
+    else if( /^json/.test( req.body.type ) ) { return loadJSONData( req , res ); }
+    else {
+        res.status( 400 ).send( "BadRequest: loadData doesn't understand the \"type\" field \"" + req.body.type + "\"." );
+        return;
+    }
+
+};
+
+// load data from a google sheet, using body as the Google sheets request spec
+const loadGoogleSheet = ( req , res ) => {
+
+    logger( "put /load request for spreadsheet " 
+                + req.body.sheet.spreadsheetId + " and range " + req.body.sheet.range );
+
+    var D = new Datasets.GoogleSheetData( req.body.apikey );
+    datasets[ D.key ] = D;
+
+    var onError = ( err ) => {
+        console.log( err.toString() ); 
+        res.status(500).write( err.toString() ).send(); 
+    };
+
+    var onLoad = (  ) => {
+        logger( "POST /data/load request for spreadsheet " 
+                + req.body.sheet.spreadsheetId + " and range " + req.body.sheet.range 
+                + " appears to have succeeded.");
+        res.send( D.key );
+    };
+
+    D.loadSheet( req.body.sheet , () => { 
+        if( req.body.header ) { D.loadHeader( req.body.header , onLoad , onError ); }
+        else { onLoad(); }
+    } , onError );
+    
+};
+
+const loadCSVData = ( req , res ) => {
+    var D = new Datasets.CSVData( req.body.data );
+    datasets[ D.key ] = D;
+    res.send( D.key );
+};
+
+const loadJSONData = ( req , res ) => {
+    var D = new Datasets.JSONData( req.body.data );
+    datasets[ D.key ] = D;
+    res.send( D.key );
+};
+
+// create a sampler for a dataset
+const createSampler = ( req , res ) => {
+
+    logger( "POST /sampler/" + req.params.did + " dataset" );
+
+    if( ! datasets[req.params.did] ) {
+        res.status( 404 ).send( "DatasetNotFound: " );
+        return;
+    }
+
+    if( ! req.body.type ){
+        res.status( 400 ).send( "BadRequest: createSampler operation requires a request body with a \"type\" field." );
+        return;
+    }
+
+    if( /^r/.test( req.body.type ) ) {
+
+        var S = new Samplers.RandomSampler( datasets[req.params.did] );
+        samplers[ S.key ] = S;
+
+        if( req.body.dist ) { S.define( req.body.dist ); }
+
+        res.send( S.key );
+
+    } else if( /^d/.test( req.body.type ) ) {
+
+        var S = new Samplers.DoESampler( datasets[req.params.did] );
+        samplers[ S.key ] = S;
+
+        if( req.body.plan ) { S.define( req.body.plan ); }
+
+        res.send( S.key );
+
+
+    } else {
+
+        res.status( 400 ).send( "BadRequest: createSampler doesn't understand the \"type\" field \"" + req.body.type + "\"." );
+        return;
+
+    }
+
+
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
  * SERVER ROUTES
  * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -236,8 +360,121 @@ app.get( '/' , (req,res) => {
     res.send("API server to return sampled rows from a Google sheet.. "); 
 } );
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * NEW API
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+app.put( '/data' , loadData ); 
+app.post( '/data' , loadData ); 
+
+// get data (ids only)
+app.get( '/data' , ( req , res ) => {
+    logger( "GET /data request" );
+    res.json( Object.keys( datasets ) );
+} );
+
+// delete a dataset
+app.delete( '/data/:did' , ( req , res ) => {
+    if( ! datasets[req.params.did] ) {
+        res.status( 404 ).send( "DatasetNotFound: " );
+        return;
+    }
+    delete datasets[req.params.did];
+    res.send( );
+} );
+
+// get dataset header that will be used to label response fields
+app.get( '/header/:did' , ( req , res ) => { 
+    if( ! datasets[req.params.did] ) {
+        res.status( 404 ).send( "DatasetNotFound: " );
+        return;
+    }
+    res.json( datasets[req.params.did].header ); 
+} );
+
+// create a sampler for a dataset (referenced by ID)
+app.put( '/sampler/:did' , createSampler );
+app.post( '/sampler/:did' , createSampler );
+
+// update properties of a sampler
+app.patch( '/sampler/:sid' , ( req , res ) => {
+    res.send();
+} );
+
+// get summary data about a sampler
+app.get( '/sampler/:sid' , ( req , res ) => {
+    res.send();
+} );
+
+// delete a sampler
+app.delete( '/sampler/:sid' , ( req , res ) => {
+    if( ! samplers[req.params.sid] ) {
+        res.status( 404 ).send( "SamplerNotFound: " );
+        return;
+    }
+    delete samplers[req.params.sid];
+    res.send( );
+} );
+
+// sample an actual row (requires sheet loaded)
+app.get( '/sample/:sid' , ( req , res ) => {
+
+    logger( "GET /sample/" + req.params.sid + " request" );
+
+    if( ! samplers[req.params.sid] ) {
+        res.status( 404 ).send( "SamplerNotFound: " );
+        return;
+    }
+
+    var sid = ( "survey"   in req.query ? req.query.survey   : ( "s" in req.query ? req.query.s : null ) ); 
+    var rid = ( "response" in req.query ? req.query.response : ( "r" in req.query ? req.query.r : null ) ); 
+    var qid = ( "question" in req.query ? req.query.question : ( "q" in req.query ? req.query.q : null ) ); 
+
+    var response = samplers[req.params.sid].sample( rid , qid );
+    if( response === null ) { res.status( 400 ).send( ); }
+    else { res.json( response ); }
+
+} );
+
+// get a sampler's vector of counts (debugging, basically)
+app.get( '/counts/:sid' , (req,res) => { 
+    logger( "GET  /counts/" + req.params.sid + " request " );
+    if( ! samplers[req.params.sid] ) {
+        res.status( 404 ).send( "SamplerNotFound: " );
+        return;
+    }
+    res.json( samplers[req.params.sid].counts ); 
+} );
+
+// reset a sampler's counts vector. Same effect as reloading the sheet. 
+app.post( '/reset/:sid' , (req,res) => { 
+    logger( "POST /reset/" + req.params.sid + " request " );
+    if( ! samplers[req.params.sid] ) {
+        res.status( 404 ).send( "SamplerNotFound: " );
+        return;
+    }
+    samplers[req.params.sid].reset();
+    res.send();
+} );
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * OLD API
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 // load google sheets app using an API key passed in the request body (data)
-app.post( '/sheets/init' , ( req , res ) => {
+app.post( '/sheet/init' , ( req , res ) => {
     logger( "POST /sheets/init request (apikey sent not logged)" );
     sheets = google.sheets( { version : 'v4' , auth : req.body.apikey } );
     // console.log( sheets );
@@ -265,9 +502,9 @@ app.post( '/sheet/load' , ( req , res ) => {
     loadSheet(  req.body , 
                 () => res.send() , 
                 (e) => {
-		    // JSON.stringify( e.errors );
-		    res.status(e.code).write( JSON.stringify(e.errors) );
-		    res.send();
+            // JSON.stringify( e.errors );
+            res.status(e.code).write( JSON.stringify(e.errors) );
+            res.send();
     } );
 
     // DON'T respond to the caller without actually loading sheet... which is an async call
@@ -352,31 +589,36 @@ app.get( '/strategy' , ( req , res ) => {
     }
 });
 
-const sampleRowRouteAction = (req,res) => {
+// get an actual row (requires sheet loaded)
+app.get( '/sample' , (req,res) => {
 
-    var sid = req.query.survey , rid = req.query.response; 
-    
     if( rows.length == 0 ) {
-	logger( "GET  /sample request before sheet object loaded." );
-	res.write( "Don't appear to have a sheet object to sample from yet." )
-	res.status(500).send();
-	return;
+        logger( "GET  /sample request before sheet object loaded." );
+        res.write( "Don't appear to have a sheet object to sample from yet." )
+        res.status(500).send();
+        return;
     }
+
+    var sid = ( "survey"   in req.query ? req.query.survey   : ( "s" in req.query ? req.query.s : null ) ); 
+    var rid = ( "response" in req.query ? req.query.response : ( "r" in req.query ? req.query.r : null ) ); 
+    var qid = ( "question" in req.query ? req.query.question : ( "q" in req.query ? req.query.q : null ) ); 
+
+    // if sid provided, and unique_counts option set, create and use separate counts objects
+    // if rid provided, and no_repeats option set, don't send back a row already seen by this responder
+    // if qid provided... 
     
-    var R = sampleRow();
+    var R = samplers[sid].sample( rid , qid );
+
     rowRequestCount += 1;
     logger( "GET  /sample request " + rowRequestCount + " sampled row " + R );
+    console.log( sampleStore )
+
     var response = { Row : R + rowRange[0] }
     header.map( (k,i) => { response[k] = rows[R][i]; } );
     res.json( response );
     counts[R]++;
 
-}
-
-// get an actual row (requires sheet loaded)
-app.get( '/sample' , sampleRowRouteAction );
-app.get( '/sample/:sid' , sampleRowRouteAction );
-app.get( '/sample/:sid/:rid' , sampleRowRouteAction );
+} );
 
 // get the vector of counts (debugging, basically)
 app.get( '/counts' , (req,res) => { 
@@ -421,7 +663,7 @@ if( gapiKey ) {
                         () => logger( "    loaded default spreadsheet " + sheetId + " " + shrange ) , 
                         (e) => logger( "    spreadsheet load error: " + e ) );
         } else {
-
+            
         }
     } 
 }
