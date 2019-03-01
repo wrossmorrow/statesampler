@@ -88,8 +88,8 @@ sudo mkdir -p ${STATESAMPLER_HOME_DIR}
 sudo cp -r ../???* ${STATESAMPLER_HOME_DIR}/
 
 sudo useradd -r statesampler
-sudo chown statesampler:statesampler ${STATESAMPLER_HOME_DIR}
-sudo chown statesampler:statesampler ${STATESAMPLER_LOG_DIR}
+sudo chown -R statesampler:statesampler ${STATESAMPLER_HOME_DIR}
+sudo chown -R statesampler:statesampler ${STATESAMPLER_LOG_DIR}
 
 # service setup
 sudo cp statesampler.service /etc/systemd/system
