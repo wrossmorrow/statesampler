@@ -29,6 +29,9 @@ set -o allexport
 source statesampler.env
 set +o allexport
 
+echo ${STATESAMPLER_HOME_DIR}
+echo ${STATESAMPLER_LOG_DIR}
+
 echo "# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
