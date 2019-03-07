@@ -208,11 +208,7 @@ const createSampler = ( req , res ) => {
 
     } else if( /^[dD]/.test( req.body.type ) ) {
 
-        if( req.body.survey ) {
-            S = new Samplers.DoESampler( datasets[req.params.did] , req.body.survey );
-        } else {
-            S = new Samplers.DoESampler( datasets[req.params.did] );
-        }
+        S = new Samplers.DoESampler( datasets[req.params.did] , req.body.survey , req.body.oversampling );
         samplers[ S.key ] = S;
 
         if( req.body.plan ) { S.define( req.body.plan ); }
@@ -336,11 +332,11 @@ app.delete( '/sampler/:sid' , ( req , res ) => {
 } );
 
 // sample an actual row (requires sheet loaded)
-app.get( '/sample/:sid' , ( req , res ) => {
+app.get( '/sample/:key' , ( req , res ) => {
 
-    logger( "GET /sample/" + req.params.sid + " request" );
+    logger( "GET /sample/" + req.params.key + " request" );
 
-    if( ! samplers[req.params.sid] ) {
+    if( ! samplers[req.params.key] ) {
         res.status( 404 ).send( "SamplerNotFound: " );
         return;
     }
@@ -350,7 +346,7 @@ app.get( '/sample/:sid' , ( req , res ) => {
     var rid = ( "response" in req.query ? req.query.response : ( "r" in req.query ? req.query.r : null ) ); 
     var qid = ( "question" in req.query ? req.query.question : ( "q" in req.query ? req.query.q : null ) ); 
 
-    var response = samplers[req.params.sid].sample( rid , qid );
+    var response = samplers[req.params.key].sample( rid , qid );
     if( response === null ) { res.status( 400 ).send( ); }
     else { res.json( response ); }
 

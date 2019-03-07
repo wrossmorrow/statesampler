@@ -215,19 +215,24 @@ module.exports = {
 
     DoESampler : class DoESampler extends NameableDescribeable {
         
-        constructor( dataset , survey ) {
+        constructor( dataset , survey , over ) {
 
             super();
 
             this.key       = ( survey ? survey : getHash() );
             this.dataset   = dataset;
+            this.over      = ( over
+                                ? { resp : ( over.resp ? over.resp : "none" ) , 
+                                    obsv : ( over.obsv ? over.obsv : "none" ) }
+                                : { resp : "none" , obsv : "none" }
+                            );
 
             this.plan      = []; // Array of arrays, the actual draws to take
             this.rows      = {}; // the response id - plan row mappings
             this.ptrs      = {}; // the current rid indices, in the plan
             this.rcount    = 0;
 
-            this.samples   = 0; // 
+            this.samples   = 0; // count of samples
 
             this.counts    = new Array( this.dataset.rows.length );
             for( var i = 0 ; i < this.dataset.rows.length ; i++ ) { 
@@ -260,22 +265,94 @@ module.exports = {
         // get next response for a certain respondent id
         sample( rid , qid ) {
 
+            // if we __haven't__ seen this rid before...
             if( typeof this.rows[rid] === "undefined" ) {
+
                 if( this.rcount < this.plan.length ) {
+
                     this.rows[rid] = this.rcount;
+                    // this.rids[this.rcount] = rid // inverse map
                     this.rcount += 1;
                     this.ptrs[rid] = 0;
-                } else { return null; }
+
+                } else { 
+
+                    // __respondent__ oversampling...
+
+                    if( /random/.test( this.over.resp ) ) { 
+
+                        // __random__ row from the plan
+                        this.rows[rid] = Math.floor( Math.random() * this.plan.length );
+
+                    } else if( /biased/.test( this.over.resp ) ) { 
+
+                        // bias using counts towards __least__ finished rows
+                        var s = 0;
+                        var p = this.plan.map( (l,r) => {
+                            var ptr = this.ptrs[ this.rids[r] ];
+                            if( ptr == l.length ) { return 0; } // if row is complete, set prob to zero
+                            else { var q = 1.0 / ( ptr + 1 ); s += q; return q; } // o/w, bias towards fewer samples
+                        } ); // 
+
+                        var u = Math.random(); // random number
+                        if( s == 0 ) { // if all rows in the plan were completed, just randomly sample
+                            this.rows[rid] = Math.floor( u * this.plan.length );
+                        } else { 
+                            // if there are some incompletes, sample with a bias towards most incomplete rows
+                            u *= s; // (same as dividing p by s, but with a single operation instead)
+                            for( var r = 0 ; r < this.plan.length ; r++ ) {
+                                if( u <= p[r] ) { break; } else { u -= p[r]; }
+                            }
+                            this.rows[rid] = r;
+                        }
+
+                    } else { return null; } // none, so don't respond
+
+                    // we always set this if responding
+                    this.ptrs[rid] = 0;
+
+                }
+
             }
 
-            if( this.ptrs[rid] >= this.plan[ this.rows[rid] ].length ) { return null; }
-            var R = this.plan[ this.rows[rid] ][ this.ptrs[rid] ];
-            this.ptrs[rid] += 1;
-            this.samples += 1;
-            this.counts[R] += 1;
+            // row sampling
+
+            var R = null;
+
+            if( this.ptrs[rid] < this.plan[ this.rows[rid] ].length ) { 
+
+                R = this.plan[ this.rows[rid] ][ this.ptrs[rid] ];
+                this.ptrs[rid] += 1;
+
+            } else {
+
+                // __observation__ oversampling... options: 
+                // 
+                //    uniformly not in respondent's plan
+                //    biased sampling from "underviewed" alternatives
+                // 
+
+                if( /random/.test( this.over.obsv ) ) { 
+
+                    // random sample __not__ from the plan for this respondent
+                    var p = ( new Array( this.dataset.rows.length ) ).fill(1);
+                    this.plan[ this.rows[rid] ].forEach( s => { p[s] = 0; } );
+                    var u = Math.random(); // random number
+                    u *= ( this.dataset.rows.length - this.plan[this.rows[rid]].length );
+                    for( R = 0 ; R < this.dataset.rows.length ; R++ ) {
+                        if( u <= p[R] ) { break; } else { u -= p[R]; }
+                    }
+
+                } // none? don't act. R stays null
+
+            }
 
             if( R === null ) { return null; }
-            else { return this.dataset.getRow( R ); }
+            else { 
+                this.samples += 1;
+                this.counts[R] += 1;
+                return this.dataset.getRow( R ); 
+            }
 
         }
 
