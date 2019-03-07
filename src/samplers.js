@@ -229,15 +229,13 @@ module.exports = {
 
             this.plan      = []; // Array of arrays, the actual draws to take
             this.rows      = {}; // the response id - plan row mappings
-            this.ptrs      = {}; // the current rid indices, in the plan
+            this.ptrs      = {}; // the current rid indices, in the plan rows
+            this.rids      = new Array( this.plan.length ); // quick inverse map
             this.rcount    = 0;
 
             this.samples   = 0; // count of samples
 
-            this.counts    = new Array( this.dataset.rows.length );
-            for( var i = 0 ; i < this.dataset.rows.length ; i++ ) { 
-                this.counts[i] = 0.0; 
-            }
+            this.counts    = ( new Array( this.dataset.rows.length ) ).fill( 0.0 );
 
         }
 
@@ -254,12 +252,10 @@ module.exports = {
 
         clear(  ) {
             this.rows      = {}; // the response id - plan row mappings
-            this.ptrs      = {}; // the current rid indices, in the plan
+            this.ptrs      = {}; // the current rid indices, in the plan rows
+            this.rids      = new Array( this.plan.length ); // quick inverse map
             this.samples   = 0; // 
-            this.counts    = new Array( this.dataset.rows.length );
-            for( var i = 0 ; i < this.dataset.rows.length ; i++ ) { 
-                this.counts[i] = 0.0; 
-            }
+            this.counts    = ( new Array( this.dataset.rows.length ) ).fill( 0.0 );
         }
 
         // get next response for a certain respondent id
@@ -271,7 +267,7 @@ module.exports = {
                 if( this.rcount < this.plan.length ) {
 
                     this.rows[rid] = this.rcount;
-                    // this.rids[this.rcount] = rid // inverse map
+                    this.rids[this.rcount] = rid // quick inverse map
                     this.rcount += 1;
                     this.ptrs[rid] = 0;
 
@@ -286,16 +282,17 @@ module.exports = {
 
                     } else if( /biased/.test( this.over.resp ) ) { 
 
-                        // bias using counts towards __least__ finished rows
+                        // bias using counts towards __least__ finished rows... 
+                        // we need some mechanism to "replace" finished entries with unfinished ones
                         var s = 0;
                         var p = this.plan.map( (l,r) => {
-                            var ptr = this.ptrs[ this.rids[r] ];
+                            var ptr = this.ptrs[ this.rids[r] ]; 
                             if( ptr == l.length ) { return 0; } // if row is complete, set prob to zero
                             else { var q = 1.0 / ( ptr + 1 ); s += q; return q; } // o/w, bias towards fewer samples
                         } ); // 
 
                         var u = Math.random(); // random number
-                        if( s == 0 ) { // if all rows in the plan were completed, just randomly sample
+                        if( s == 0 ) { // if __all__ rows in the plan have been completed, just randomly sample
                             this.rows[rid] = Math.floor( u * this.plan.length );
                         } else { 
                             // if there are some incompletes, sample with a bias towards most incomplete rows

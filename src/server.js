@@ -37,6 +37,7 @@ const protect = ( a , b ) => { return ( a ? a : b ); }
 const _express      = require( 'express' );
 const _bodyParser   = require( 'body-parser' );
 const _cors         = require( 'cors' );
+const _crypto       = require( 'crypto' );
 const _config       = require( 'config.json' )( protect( process.env.CONF_FILE , './../conf.json' ) );
 
 const Samplers      = require( './samplers.js' );
@@ -128,11 +129,6 @@ const loadGoogleSheet = ( req , res ) => {
         return;
     }
 
-    logger( "PUT/POST /data request for spreadsheet " 
-                + req.body.sheet.id + " and range " 
-                + req.body.sheet.name + "!" 
-                + req.body.sheet.range );
-
     var D = new Datasets.GoogleSheetData( req.body.apikey );
     datasets[ D.key ] = D;
 
@@ -143,7 +139,7 @@ const loadGoogleSheet = ( req , res ) => {
 
     var onLoad = (  ) => {
         logger( "POST /data/load request for spreadsheet " 
-                + req.body.sheet.spreadsheetId + " and range " + req.body.sheet.range 
+                + req.body.sheet.id + " and range " + req.body.sheet.range 
                 + " appears to have succeeded.");
         res.send( D.key );
     };
@@ -180,8 +176,6 @@ const loadJSONData = ( req , res ) => {
 
 // create a sampler for a dataset
 const createSampler = ( req , res ) => {
-
-    logger( "POST /sampler/" + req.params.did + " dataset" );
 
     if( ! datasets[req.params.did] ) {
         res.status( 404 ).send( "DatasetNotFound: " );
@@ -244,6 +238,33 @@ app.use( _bodyParser.json() );
 app.use( _bodyParser.urlencoded({ extended: false }) );
 app.use( _cors() );
 
+// logging middleware
+app.use( function( req , res , next ) { 
+
+    const start = Date.now() / 1000.0; 
+    const key = _crypto.randomBytes(12).toString('hex');
+
+    logger( "REQLOG,"  + req.method.toUpperCase()
+                    + "," + req.url
+                    + "," + key );
+
+    const send_ = res.send;
+    res.send = function( object ) { 
+        const now = Date.now() / 1000.0;
+        logger(  "RESLOG," + key 
+                        + "," + req.method.toUpperCase()
+                        + "," + req.url
+                        + "," + res.statusCode
+                        + "," + start.toFixed(3) 
+                        + "," + now.toFixed(3) 
+                        + "," + (now-start).toFixed(3) );
+        send_.call( res , object );
+    };
+
+    next();
+
+} );
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -277,7 +298,6 @@ app.put( '/data' , loadData ); app.post( '/data' , loadData );
 
 // get data (ids only)
 app.get( '/data' , ( req , res ) => {
-    logger( "GET /data request" );
     res.json( Object.keys( datasets ) );
 } );
 
@@ -334,8 +354,6 @@ app.delete( '/sampler/:sid' , ( req , res ) => {
 // sample an actual row (requires sheet loaded)
 app.get( '/sample/:key' , ( req , res ) => {
 
-    logger( "GET /sample/" + req.params.key + " request" );
-
     if( ! samplers[req.params.key] ) {
         res.status( 404 ).send( "SamplerNotFound: " );
         return;
@@ -361,7 +379,6 @@ app.post( '/choices/:sid' , ( req , res ) => {
 
 // get a sampler's vector of counts (debugging, basically)
 app.get( '/counts/:sid' , (req,res) => { 
-    logger( "GET  /counts/" + req.params.sid + " request " );
     if( ! samplers[req.params.sid] ) {
         res.status( 404 ).send( "SamplerNotFound: " );
         return;
@@ -371,7 +388,6 @@ app.get( '/counts/:sid' , (req,res) => {
 
 // reset a sampler's counts vector. Same effect as reloading the sheet. 
 app.post( '/reset/:sid' , (req,res) => { 
-    logger( "POST /reset/" + req.params.sid + " request " );
     if( ! samplers[req.params.sid] ) {
         res.status( 404 ).send( "SamplerNotFound: " );
         return;
@@ -392,7 +408,6 @@ app.post( '/reset/:sid' , (req,res) => {
 
 // naive error post back method; this is so we write client-side errors back into the server log
 app.post( '/error' , (req,res) => { 
-    logger( "POST /error request : " + JSON.stringify( req.body ) );
     res.send(); 
 } );
 
