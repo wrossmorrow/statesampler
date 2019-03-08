@@ -176,7 +176,7 @@ module.exports = {
                 if( this.sampled[ rid ] ) {
 
                     // we have to make sure that this can't pathologically fail and loop indefinitely
-                    resamples = 1;
+                    var resamples = 1;
                     while( this.sampled[ rid ].indexOf( R ) >= 0 ) { 
                         R = this.smplfcn( this.counts , this.samples ); 
                         if( resamples >= 10 ) { break; }
