@@ -43,9 +43,8 @@ module.exports = class SamplerBase extends SharedBaseClass {
     	// store dataset (reference)
         this.dataset = dataset;
 
-        // initialize things we always include
-        this.samples = 0; // total count of samples
-        this.counts  = ( new Array( this.dataset.rows.length ) ).fill( 0 );
+        // initialize the samples and counts
+        this.reset();
 
     }
 

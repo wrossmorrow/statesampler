@@ -51,12 +51,8 @@ class RandomSampler extends SamplerBase {
     }
     
     reset(  ) { 
-    	this.clear(); 
-    }
-
-    clear(  ) {
+        super.reset( );
         this.sampled = {};
-        super.clear();
     }
 
     // sample for this rid/qid
