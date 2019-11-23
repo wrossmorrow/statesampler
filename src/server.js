@@ -353,7 +353,7 @@ app.post( '/sampler/:did' , createSampler );
 // PLACEHOLDER: get summary data about a sampler
 app.get( '/sampler/:sid' , ( req , res ) => {
     if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    res.send();
+    res.json( samplers[req.params.sid].info() );
 } );
 
 // update properties of a sampler

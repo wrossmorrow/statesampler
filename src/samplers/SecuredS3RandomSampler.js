@@ -203,6 +203,9 @@ class SecuredS3RandomSampler extends RandomSampler {
         // NOTE: async and, depending on the objects, could be time consuming
         // 
         this.temps = {};
+        this.ready = false;
+        let copies = 0 , 
+            total = this.counts.length * this.minCopies;
         for( var i = 0 ; i < this.counts.length ; i++ ) {
 
             // get bucket, s3key for the i'th dataset row
@@ -214,7 +217,10 @@ class SecuredS3RandomSampler extends RandomSampler {
             // process further only if the URL is an S3 URL
             if( data ) {  // make minCopies copies of each item
                 for( var j = 0 ; j < this.minCopies ; j++ ) {
-                    this.copyS3Object( data.bucket , data.key );
+                    this.copyS3Object( data.bucket , data.key , () => { 
+                        copies += 1;
+                        this.ready = ( copies == total );
+                    } );
                 }
             }
 
@@ -224,6 +230,12 @@ class SecuredS3RandomSampler extends RandomSampler {
         // a "buffered" method we can check by returning generic data
         // about the sampler? 
 
+    }
+
+    info() {
+        let data = super.info();
+        data.ready = this.ready;
+        return data;
     }
 
     // reset? 
@@ -260,7 +272,7 @@ class SecuredS3RandomSampler extends RandomSampler {
     }
 
     // a copy S3 object wrapper
-    copyS3Object( bucket , key ) {
+    copyS3Object( bucket , key , onDone ) {
 
         // get a random identifier
         let pubkey = getRandomKey();
@@ -288,7 +300,8 @@ class SecuredS3RandomSampler extends RandomSampler {
                     this.temps[ s3obj ] = [ pubkey ];
                 }
 
-                // 
+                if( onDone ) { onDone(); }
+
                 // this.logger( `completed copy ${bucket}/${key} -> ${pubkey}` );
 
             } ).catch( err => {
@@ -368,7 +381,7 @@ class SecuredS3RandomSampler extends RandomSampler {
 
 };
 
-
+// export, no 
 module.exports = {
     class : SecuredS3RandomSampler , 
 }

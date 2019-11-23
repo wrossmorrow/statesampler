@@ -49,6 +49,16 @@ module.exports = class SamplerBase extends SharedBaseClass {
 
     }
 
+    info() {
+    	return {
+    		type    : this.type , 
+    		created : this.created , 
+    		name    : this.name , 
+    		description : this.desc , 
+    		samples : this.samples , 
+    	};
+    }
+
     clear() {
         this.samples = 0; // total count of samples
         this.counts  = ( new Array( this.dataset.rows.length ) ).fill( 0 );

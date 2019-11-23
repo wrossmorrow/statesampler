@@ -23,7 +23,7 @@ const _crypto = require( 'crypto' );
 module.exports = class SharedBaseClass {
 
     constructor( options ) {
-
+        this.created = ( new Date( Date.now() ) ).toISOString();
         this.name = "";
         this.desc = "";
     	if( options ) {
