@@ -42,7 +42,7 @@ env | grep '^STATESAMPLER_' > ${STATESAMPLER_HOME_DIR}/service/.env
 # copy start and stop, and make them user-executable
 cp service/statesampler.start ${STATESAMPLER_HOME_DIR}/service/start
 cp service/statesampler.stop  ${STATESAMPLER_HOME_DIR}/service/stop
-chmod u+x ${STATESAMPLER_HOME_DIR}/st*
+chmod u+x ${STATESAMPLER_HOME_DIR}/service/st*
 
 # copy source files, package.json, and install
 cp -r src ${STATESAMPLER_HOME_DIR}/
