@@ -25,16 +25,16 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 # load environment variables
-set -a && source .env && set +a
+[[ -f .env ]] && set -a && source .env && set +a
 
 # set defaults
-[[ -z ${STATESAMPLER_HOME_DIR} ]] && STATESAMPLER_HOME_DIR="/etc/statesampler"
-[[ -z ${STATESAMPLER_LOG_DIR}  ]] && STATESAMPLER_LOG_DIR="/var/log/statesampler"
-[[ -z ${STATESAMPLER_NODE_EXE} ]] && STATESAMPLER_NODE_EXE="/usr/local/bin/node"
+[[ -z ${STATESAMPLER_HOME_DIR} ]] && export STATESAMPLER_HOME_DIR="/etc/statesampler"
+[[ -z ${STATESAMPLER_LOG_DIR}  ]] && export STATESAMPLER_LOG_DIR="/var/log/statesampler"
+[[ -z ${STATESAMPLER_NODE_EXE} ]] && export STATESAMPLER_NODE_EXE="/usr/local/bin/node"
 
 # make sure home and log dirs exist, make a service folder too
-mkdir -p ${STATESAMPLER_HOME_DIR} ${STATESAMPLER_HOME_DIR}
-mkdir ${STATESAMPLER_HOME_DIR}/service
+mkdir -p ${STATESAMPLER_HOME_DIR} ${STATESAMPLER_LOG_DIR}
+mkdir -p ${STATESAMPLER_HOME_DIR}/service
 
 # create environment file
 env | grep '^STATESAMPLER_' > ${STATESAMPLER_HOME_DIR}/service/.env
