@@ -23,6 +23,7 @@ const _crypto = require( 'crypto' );
 module.exports = class SharedBaseClass {
 
     constructor( options ) {
+
         this.name = "";
         this.desc = "";
     	if( options ) {

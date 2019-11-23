@@ -20,13 +20,13 @@ module.exports = ( path , match , exclude , loadAsync ) => {
 
 	// what we'll execute on every loadable file found
 	var theAction = ( i ) => {
-        let n = i.replace( match , '' ) , m = require( `${__dirname}/${path}/${i}` );
+        let n = i.replace( match , '' ) , m = require( `${path}/${i}` );
         console.log( `  loaded ${i} as "${n}"` );
         loaded[n] = m.class;
         if( m.nicknames ) {
         	m.nicknames.forEach( n => { 
         		console.log( `    also aliased ${i} as "${n}"` );
-        		loaded[n] = m.classw; 
+        		loaded[n] = m.class; 
         	} );
         }
     }
@@ -35,15 +35,15 @@ module.exports = ( path , match , exclude , loadAsync ) => {
 	if( ! Array.isArray(exclude) ) { exclude = [ exclude ]; }
 
 	// print out what we're doing
-	console.log( `Loading ${__dirname}/${path}/${match.toString().replace(/^\/|\/$/g,'')}` );
+	console.log( `Loading ${path}/${match.toString().replace(/^\/|\/$/g,'')}` );
 
 	// ok, read the directory
 	if( loadAsync ) {
-		_fs.readdir( __dirname + '/' + path , ( err , items ) => {
+		_fs.readdir( path , ( err , items ) => {
 		    items.filter( theFilter ).forEach( theAction );
 		} );
 	} else {
-		_fs.readdirSync( __dirname + '/' + path )
+		_fs.readdirSync( path )
 			.filter( theFilter ).forEach( theAction );
 	}
 

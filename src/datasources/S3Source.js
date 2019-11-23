@@ -4,9 +4,7 @@ const AWS = require( 'aws-sdk' );
 const DataSourceBase = require( __dirname + "/DataSourceBase.js" );
 
 const returnURLExe = {
-	's3url' : ( s ) => {
-
-	} , 
+	's3url' : ( s ) => ( `https://${s.bucket}.s3.amazonaws.com/${s.key}` ) , 
 	's3obj' : ( s ) => ( s.bucket + '/' + s.key ) , 
 	'parts' : ( s ) => ( s ) , 
 }

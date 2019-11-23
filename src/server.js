@@ -38,8 +38,8 @@ const _cors         = require( 'cors' );
 
 const _crypto       = require( 'crypto' );
 
-const Datasources   = require( './loader.js' )( "datasources" , /.js$/ , "DataSourceBase.js" );
-const Samplers      = require( './loader.js' )( "samplers" , /.js$/ , "SamplerBase.js" );
+const Datasources   = require( './loader.js' )( __dirname + "/datasources" , /.js$/ , "DataSourceBase.js" );
+const Samplers      = require( './loader.js' )( __dirname + "/samplers" , /.js$/ , "SamplerBase.js" );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -160,6 +160,7 @@ const loadData = ( req , res ) => {
     try {
         D = new (Datasources[req.body.type])( req.body.options );
     } catch( err ) {
+        console.error( err )
         return res.status( err.code ).send( err.message ); 
     }
 
