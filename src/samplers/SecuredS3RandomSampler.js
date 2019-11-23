@@ -392,7 +392,7 @@ class SecuredS3RandomSampler extends RandomSampler {
         this.copyS3Object( data.bucket , data.key );
 
         // __NOW__ we can return the url or row
-        return row;
+        return ( this.urlField ? row : { url : row , iid : data.key } );
 
     }
 
