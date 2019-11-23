@@ -151,9 +151,26 @@ class SecuredS3RandomSampler extends RandomSampler {
             this.urlField = null;
         }
 
+        // set "deleteAfter" option (lifetime) for objects
+        if( "deleteAfter" in options && options.deleteAfter ) {
+            let secs = iso8601Secs( options.deleteAfter );
+            if( secs ) { options.deleteAfter = secs; }
+            else { options.deleteAfter = 60; } 
+        } else { options.deleteAfter = 60; }
+
+        // set "checkEvery" option (check loop delay) for objects
+        if( "checkEvery" in options && options.checkEvery ) {
+            let secs = iso8601Secs( options.checkEvery );
+            if( secs ) { options.checkEvery = secs; }
+            else { options.checkEvery = 10; } 
+        } else { options.checkEvery = 10; }
+
         // maintain a data structure (linked list?) ** that makes deletion efficient **
         // delete after 10 seconds and check every second
-        this.expirer = new EphemeralSet( k => { this.expirePublicS3Object(k); } , 'T10S' , 'T1S' );
+        this.expirer = new EphemeralSet( 
+                            k => { this.expirePublicS3Object(k); } , 
+                            options.deleteAfter , 
+                            options.checkEvery );
         this.expirer.start();
 
         // create S3 client with passed credentials (which we must pass)

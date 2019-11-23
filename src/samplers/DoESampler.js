@@ -51,17 +51,17 @@ class DoESampler extends SamplerBase {
         this.plan = JSON.parse( JSON.stringify( plan ) ); // deep copy hack
     }
 
-    reset(  ) {
+    clear(  ) {
         this.plan      = []; // Array of arrays, the actual draws to take
         this.rcount    = 0;
-        this.clear();
+        this.reset();
     }
 
-    clear(  ) {
+    reset(  ) {
         this.rows      = {}; // the response id - plan row mappings
         this.ptrs      = {}; // the current rid indices, in the plan rows
         this.rids      = new Array( this.plan.length ); // quick inverse map
-        super.clear();
+        super.reset();
     }
 
     // get next response for a certain respondent id
