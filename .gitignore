@@ -5,6 +5,9 @@ log/*.log
 service/log
 service/log/*.log
 
+# don't track secrets
+/tests/secrets.py
+
 gsheet.json
 test*.sh
 
