@@ -59,7 +59,7 @@ module.exports = class SamplerBase extends SharedBaseClass {
     	};
     }
 
-    clear() {
+    reset() {
         this.samples = 0; // total count of samples
         this.counts  = ( new Array( this.dataset.rows.length ) ).fill( 0 );
     }
