@@ -26,7 +26,7 @@ module.exports = ( path , match , exclude , loadAsync ) => {
         if( m.nicknames ) {
         	m.nicknames.forEach( n => { 
         		console.log( `    also aliased ${i} as "${n}"` );
-        		loaded[n] = m.class; 
+        		loaded[n] = m.classw; 
         	} );
         }
     }

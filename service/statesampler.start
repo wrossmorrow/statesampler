@@ -27,6 +27,19 @@
 HD=${STATESAMPLER_HOME_DIR:-"./"}
 LD=${STATESAMPLER_LOG_DIR:-"./"}
 mkdir -p ${LD}
+
+# zip up __previous__ logs. Leave last logs unzipped. 
+for f in ${LD}/info-*.log  ; do gzip $f ; done
+for f in ${LD}/error-*.log ; do gzip $f ; done
+
+# new logs
 T=$( date +"%FT%T" | sed 's/:/-/g' | sed 's/T/-/g' )
-node ${HD}/src/server.js 2> ${LD}/error-$T.log > ${LD}/info-$T.log & 
-echo $! > ${HD}/service/statesampler.pid
+ILOG=${LD}/info-$T.log
+ELOG=${LD}/error-$T.log
+${STATESAMPLER_NODE_EXE} ${HD}/src/server.js 2> ${ELOG} > ${ILOG} & 
+echo $! > ${LD}/statesampler.pid
+
+# convenience links to latest logs
+rm ${LD}/info.log ${LD}/error.log > /dev/null
+ln -s ${ILOG} ${LD}/info.log
+ln -s ${ELOG} ${LD}/error.log
