@@ -32,8 +32,9 @@ set -a && source .env && set +a
 [[ -z ${STATESAMPLER_LOG_DIR}  ]] && STATESAMPLER_LOG_DIR="/var/log/statesampler"
 [[ -z ${STATESAMPLER_NODE_EXE} ]] && STATESAMPLER_NODE_EXE="/usr/local/bin/node"
 
-# make sure home and log dirs eist
+# make sure home and log dirs exist, make a service folder too
 mkdir -p ${STATESAMPLER_HOME_DIR} ${STATESAMPLER_HOME_DIR}
+mkdir ${STATESAMPLER_HOME_DIR}/service
 
 # create environment file
 env | grep '^STATESAMPLER_' > ${STATESAMPLER_HOME_DIR}/service/.env
