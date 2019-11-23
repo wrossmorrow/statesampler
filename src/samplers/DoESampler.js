@@ -163,7 +163,7 @@ class DoESampler extends SamplerBase {
 
 module.exports = {
     class : DoESampler , 
-    nicknames : [ 'doe' , 'DOE' ] , 
+    nicknames : [ 'doe' , 'DOE' , "DoE" ] , 
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 

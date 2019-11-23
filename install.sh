@@ -107,5 +107,5 @@ WantedBy=multi-user.target" > /etc/systemd/system/statesampler.service
 # service setup
 sudo systemctl daemon-reload
 sudo systemctl enable statesampler.service
-sudo systemctl start statesampler.service
+sudo systemctl restart statesampler.service
 sudo systemctl status statesampler.service
