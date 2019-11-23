@@ -37,7 +37,7 @@ T=$( date +"%FT%T" | sed 's/:/-/g' | sed 's/T/-/g' )
 ILOG=${LD}/info-$T.log
 ELOG=${LD}/error-$T.log
 ${STATESAMPLER_NODE_EXE} ${HD}/src/server.js 2> ${ELOG} > ${ILOG} & 
-echo $! > ${LD}/statesampler.pid
+echo $! > ${LD}/.pid
 
 # convenience links to latest logs
 rm ${LD}/info.log ${LD}/error.log > /dev/null
