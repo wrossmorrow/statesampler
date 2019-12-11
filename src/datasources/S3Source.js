@@ -9,7 +9,7 @@ const returnURLExe = {
 	'parts' : ( s ) => ( s ) , 
 }
 
-class S3Source extends DataSourceBase {
+class S3Source extends DataSourceBase.RowDataSourceBase {
 
     constructor( options ) {
 
@@ -118,13 +118,16 @@ class S3Source extends DataSourceBase {
 
     }
 
-    getRow( R ) {
+    // the "get" method
+    get( R ) {
     	if( this.returnURLs ) { 
     		return returnURLExe[this.returnURLs]( this.rows[R] ); 
-    	} else { // load and return data _at_ the URL
+    	} else { // load and return data _at_ the URL... requires access of course
 
     	}
     }
+
+    // do we implement "pop"? 
 
 }
 

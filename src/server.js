@@ -385,9 +385,14 @@ app.get( '/sample/:sid' , ( req , res ) => {
         qid = firstOfIn( req.query , ["q","qid","question"] ) ;
 
     // construct sampler response (Promise-based? that would be general...)
-    var response = samplers[req.params.sid].sample( rid , qid );
-    if( response === null ) { res.status( 400 ).send( ); }
-    else { res.json( response ); }
+    var smpl = samplers[req.params.sid].sample( rid , qid );
+    if( smpl === null ) { res.status( 400 ).send( ); }
+    else { 
+        if( Promise.resolve( smpl ) === smpl ) { // returned value is a promise
+            smpl.then( data => { res.json( data ); } )
+                .catch( err => { res.status(500).send(err.toString()); } )
+        } else { res.json( smpl ); }
+    }
 
 } );
 

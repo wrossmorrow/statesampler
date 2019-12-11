@@ -116,7 +116,7 @@ const parseGSheetSpec = ( spec ) => {
  * 
  */
 
-class GSheetSource extends DataSourceBase {
+class GSheetSource extends DataSourceBase.RowDataSourceBase {
 
     constructor( options ) {
 
@@ -231,7 +231,8 @@ class GSheetSource extends DataSourceBase {
 
     }
 
-    getRow( R ) {
+    // customized object construction, via attaching header
+    get( R ) {
         var response = { Row : R + this.rowRange[0] };
         this.header.forEach( (k,i) => { response[k] = this.rows[R][i]; } );
         return response;

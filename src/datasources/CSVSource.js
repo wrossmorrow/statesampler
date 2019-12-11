@@ -1,15 +1,11 @@
 
 const DataSourceBase = require( __dirname + "/DataSourceBase.js" );
 
-class CSVSource extends DataSourceBase {
+class CSVSource extends DataSourceBase.RowDataSourceBase {
 
     constructor( options ) {
         super( options );
 
-    }
-
-    getRow( R ) {
-    	
     }
 
 }

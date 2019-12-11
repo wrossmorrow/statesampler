@@ -154,7 +154,7 @@ class DoESampler extends SamplerBase {
         else { 
             this.samples += 1;
             this.counts[R] += 1;
-            return this.dataset.getRow( R ); 
+            return this.dataset.get( R ); 
         }
 
     }

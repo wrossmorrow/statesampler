@@ -10,6 +10,8 @@
 
 const AWS = require( 'aws-sdk' );
 
+const axios = require( 'axios' );
+
 const _crypto = require( 'crypto' );
 
 const EphemeralSet = require( 'ephemeral-set' );
@@ -20,12 +22,11 @@ const getRandomKey = () => ( _crypto.randomBytes(24).toString('hex') );
 
 const s3URLFormat = /https:\/{2}(([^\.]+)\.){0,1}s3(-([^\.]+)){0,1}\.amazonaws\.com\/(.*)/;
 
+// a function to "decode" S3 urls by "type", presuming we get a spec of the "parts"
 const decodeS3URL = {
 
     'parts' : ( url ) => ( url ) , 
-
     's3obj' : ( url ) => ( url.bucket + '/' + url.key ) , 
-
     's3url' : ( url ) => {
 
         // parse S3 URL components, and exit if that fails
@@ -198,11 +199,12 @@ class SecuredS3RandomSampler extends RandomSampler {
         // we can implement public-bucket object expiration with lifecycle policies
         // if our expiration timeline is __long__ (measured in days). That's a 
         // reasonable backstop, in any case, so worth setting overall I think. 
+        let OptionalS3LifecycleDays = parseInt( this.options.aws.public.lifecycleDays );
         var params = {
             Bucket : this.publicBucket , 
             LifecycleConfiguration : {
                 Rules : [ {
-                    Expiration : { Days : 1 } , 
+                    Expiration : { Days : OptionalS3LifecycleDays ? OptionalS3LifecycleDays : 1 } , 
                     Filter     : { Prefix : this.publicPrefix + '/' } , 
                     ID         : "TestOnly" , 
                     Status     : "Enabled" , 
@@ -219,47 +221,60 @@ class SecuredS3RandomSampler extends RandomSampler {
         // 
         // NOTE: async and, depending on the objects, could be time consuming
         // 
+        // BECAUSE "LOADING" IS ASYNC... HOW DOES EXTERNAL CODE KNOW WHEN IT IS DONE? 
+        // a "buffered" method we can check by returning generic data
+        // about the sampler? 
+        // 
+        // We could also allow "optional" "onLoaded" and "onLoadError" methods to be passed, 
+        // which we could call in the promise resolution above if passed. However, a 
+        // long-running HTTP request may not be what callers want. 
+        // 
         this.temps = {};
         this.ready = false;
-        let copies = 0 , 
-            total = this.counts.length * this.minCopies;
+        let todos = []; // we'll fill up an array of promises to act on collectively
         for( var i = 0 ; i < this.counts.length ; i++ ) {
 
-            // get bucket, s3key for the i'th dataset row
-            let row = this.dataset.getRow( i );
+            // get the i'th dataset row
+            let row = this.dataset.get( i );
 
             // row has a "url" field? or we set that in constructor as a header? 
-            let data = this.decodeS3URL( row );
+            let data = this.decodeS3URL( this.urlField ? row[this.urlField] : row );
 
-            // process further only if the URL is an S3 URL
+            // process further only if the URL is a decodable S3 URL
             if( data ) {  // make minCopies copies of each item
-                for( var j = 0 ; j < this.minCopies ; j++ ) {
-                    this.copyS3Object( data.bucket , data.key , () => { 
-                        copies += 1;
-                        this.ready = ( copies == total );
-                    } );
-                }
+                this.temps[ data.bucket + '/' + data.key ] = []; // initialize
+                todos.push( this.rebuffer( data.bucket , data.key ) ); // rebuffer
             }
 
         }
 
-        // THIS "LOADING" IS ASYNC... HOW DO WE KNOW WHEN IT IS DONE? 
-        // a "buffered" method we can check by returning generic data
-        // about the sampler? 
+        // act on resolved complete set of rebuffering promises
+        Promise.all( todos )
+            .then( () => { this.ready = true; } )
+            .catch( err => {
+                // a "rebuffer" promise will reject if any of the underlying copies
+                // rejects... then this collective will reject if any of the underlying
+                // copies rejects. Is that what we want? 
+            } )
+            .finally( () => {
+                // do we do anything here, like attempt to rebuffer _again_ if there 
+                // are any errors. 
+            } );
 
     }
 
-    info() {
+    // get general info about the sampler
+    info(  ) {
         let data = super.info();
         data.ready = this.ready;
         return data;
     }
 
-    // reset? 
-
-    // clear? 
-
-
+    // define reset? clear? Only if we need to "flush" the temporary copies object or 
+    // public bucket or something. This object isn't formally storing any data relevant
+    // to the sampling process, that happens in a sub-class. (So "this object" does it, 
+    // just with code defined elsewhere.)
+    
     // define an instance-specific decoder given a format and field
     decodeS3URL( obj ) {
         if( this.urlField ) {
@@ -289,41 +304,115 @@ class SecuredS3RandomSampler extends RandomSampler {
     }
 
     // a copy S3 object wrapper
-    copyS3Object( bucket , key , onDone ) {
+    copyS3Object( bucket , key , noadd ) {
 
-        // get a random identifier
-        let pubkey = getRandomKey();
+        return new Promise( ( resolve , reject ) => {
 
-        // this.logger( `copying ${bucket}/${key} -> ${pubkey}` )
-        
-        // define parameters for copy
-        var params = {
-            CopySource : `/${bucket}/${key}` , 
-            Bucket     : this.publicBucket , 
-            Key        : ( this.publicPrefix ? this.publicPrefix + "/" : "" ) + pubkey , 
-        };
+            // get a random identifier
+            let pubkey = getRandomKey();
+            
+            // define parameters for copy
+            var params = {
+                CopySource : `/${bucket}/${key}` , 
+                Bucket     : this.publicBucket , 
+                Key        : ( this.publicPrefix ? this.publicPrefix + "/" : "" ) + pubkey , 
+            };
 
-        // copy operation
-        this.s3.copyObject( params ).promise()
-            .then( data => {
+            // copy operation
+            this.s3.copyObject( params ).promise()
+                .then( data => {
 
-                // create a new S3 object reference
-                let s3obj = bucket + '/' + key;
+                    if( noadd ) { resolve( pubkey ); }
+                    else {
 
-                // add the public key to the temps array for this object
-                if( s3obj in this.temps ) {
-                    this.temps[ s3obj ].push( pubkey );
-                } else {
-                    this.temps[ s3obj ] = [ pubkey ];
-                }
+                        // create a new S3 object reference
+                        let s3obj = bucket + '/' + key;
 
-                if( onDone ) { onDone(); }
+                        // add the public key to the temps array for this object
+                        if( s3obj in this.temps ) {
+                            this.temps[ s3obj ].push( pubkey );
+                        } else {
+                            this.temps[ s3obj ] = [ pubkey ];
+                        }
 
-                // this.logger( `completed copy ${bucket}/${key} -> ${pubkey}` );
+                        // resolve the promise we're returning
+                        resolve( pubkey );
 
-            } ).catch( err => {
-                console.log( err , err.stack );
-            } );
+                    }
+
+                } ).catch( reject );
+
+        } );
+
+    }
+
+    // "rebuffer" the store of temporary public objects, which means 
+    // copy the actual objects until there are minCopies (registered)
+    // copies for the bucket and key associated with the private object
+    rebuffer( bucket , key ) {
+        let tempKeys = this.temps[ bucket + '/' + key ];
+        if( tempKeys.length < this.minCopies ) { 
+            let ps = [ this.copyS3Object( bucket , key ) ];
+            // NOTE: can't use "while" here because operations are async. 
+            for( var i = 1 ; i < this.minCopies - tempKeys.length ; i++ ) {
+                ps.push( this.copyS3Object( bucket , key ) );
+            }
+            return Promise.all( ps );
+        }
+    }
+
+    // get a NEW public resource URL
+    newPublicURL( bucket , key ) {
+        return new Promise( ( resolve , reject ) => {
+            this.copyS3Object( bucket , key , true )
+                .then( pubkey => { resolve( this.formatPublicS3URL( pubkey ) ); } )
+                .catch( reject );
+        } );
+    }
+
+    // get the next temporary, public URL for a particular bucket and key
+    nextPublicURL( bucket , key ) {
+
+        // look for this object in the temporary object store, using full s3obj style key
+        let s3obj = bucket + '/' + key;
+
+        // is the object even listed in temps collection? 
+        if( ! ( s3obj in this.temps ) ) {
+            return this.newPublicURL( bucket , key );
+        }
+
+        // so there are temp keys for this object... 
+        let tempKeys = this.temps[ s3obj ];
+
+        // are there any temp copies registered? 
+        if( tempKeys.length == 0 ) {
+            return this.newPublicURL( bucket , key );
+        } 
+
+        // try to get a temp URL and...
+        let puburl = this.formatPublicS3URL( tempKeys.pop() );
+        return new Promise( ( resolve , reject ) => { 
+
+            // check that this URL actually exists before returning
+
+            // If there is a lifecycle policy on the S3 bucket things can disappear. 
+            // And if we aren't checking that copies succeed, we might not have copies. 
+            axios.head( puburl )
+                .then( () => { resolve( puburl ) } )
+                .catch( err => {
+                    if( err.response ) {
+                        if( err.response.status == 403 || err.response.status == 404 ) {
+                            // here we "recurse"... if there isn't the object we thought we
+                            // could ask for, we "call" this method again but really 
+                            // just get another promise and _forward_ resolve/reject to that
+                            // (Is this some form of "Promise Chaining" we can write more 
+                            // simply?)
+                            this.nextPublicURL( bucket , key ).then( resolve ).catch( reject );
+                        } else { reject( err ); }
+                    }
+                } );
+
+        } );
 
     }
 
@@ -337,68 +426,63 @@ class SecuredS3RandomSampler extends RandomSampler {
 
         // decode the URL data into S3 parts, based on formatter
         // urlField defined and used only for "field" type formats
-        let data = this.decodeS3URL( row );
+        let data = this.decodeS3URL( this.urlField ? row[this.urlField] : row );
 
         // if we couldn't identify the S3 URL data, just return
         if( ! data ) { return row; } // good luck...
 
         // "data.bucket" should match "privateBucket" if that has been stored... 
 
-        // look for this object in the temporary object store, using full s3obj style key
-        let s3obj = data.bucket + '/' + data.key;
-        if( ! ( s3obj in this.temps ) ) { // the object is not listed in temps collection...
+        // return a Promise not a sample itself... this promise resolves by finding
+        // (or creating) a "next" public URL to pass back for the sampled object
+        return new Promise( ( resolve , reject ) => {
 
-            console.log( `no temp for ${s3obj}` );
+            this.nextPublicURL( data.bucket , data.key )
+                .then( puburl => {
 
-            // DO WE INITIALIZE HERE? Initializing is async, which is ok 
-            // if we return promises. 
-            return row; 
+                    // now we can "return" the data
+                    if( this.urlField ) { 
+                        row[this.urlField] = puburl; 
+                    } else {
+                        row = { url : puburl , iid : data.key };
+                    }
+                    resolve( row );
 
-        } 
+                    // actions after resolution should be ok in an async setting... 
 
-        let tempKeys = this.temps[ s3obj ];
-        if( tempKeys.length < this.minCopies ) { // are there too few copies? 
-
-            // create a copy first... create two copies? create enough to 
-            // fill up the "buffer". these copies are async, we can't use 
-            // them right away. we won't store them right away though. 
-            for( var i = 0 ; i < this.minCopies - tempKeys.length ; i++ ) {
-                this.copyS3Object( data.bucket , data.s3key );
-            }
-
-        }
-
-        // overwrite the "private" URL with a "public" one for return, and
-        // remove the object used from the list of objects usable
-        let pubkey = tempKeys.pop();
-        if( this.urlField ) {
-            row[this.urlField] = this.formatPublicS3URL( pubkey );
-        } else {
-            row = this.formatPublicS3URL( pubkey );
-        }
-
-        // store IP address that requested the particular temporary URL?
-        // requires that the sampler passes the request object along with
-        // any sample request (which isn't awful)
+                    // store IP address that requested the particular temporary URL?
+                    // requires that the sampler passes the request object along with
+                    // any sample request (which isn't awful)
 
 
 
-        // set the expiration time for this replacement object, because it has now been 
-        // requested (we "register" with the expirer only after returning)
-        this.expirer.add( pubkey ); // using default lifetime
+                    // set the expiration time for this replacement object, because it has now been 
+                    // requested (we "register" with the expirer only after returning)
+                    this.expirer.add( /\/([^\/]+)$/.exec(puburl)[1] );
 
-        // _initiate_ creation of a replacement copy...  copy routines stores the 
-        // key created in the temporary objects data structure
-        this.copyS3Object( data.bucket , data.key );
+                    // attempt to fill queue back up after a sample, but forget about 
+                    // whether this succeeds or fails _here_
+                    this.rebuffer( data.bucket , data.key );
 
-        // __NOW__ we can return the url or row
-        return ( this.urlField ? row : { url : row , iid : data.key } );
+                } ).catch( reject )
+
+        } );
 
     }
 
 };
 
-// export, no 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * 
+ * 
+ * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// export, no aliasing 
 module.exports = {
     class : SecuredS3RandomSampler , 
 }
