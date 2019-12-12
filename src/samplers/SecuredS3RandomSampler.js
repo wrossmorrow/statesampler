@@ -199,7 +199,7 @@ class SecuredS3RandomSampler extends RandomSampler {
         // we can implement public-bucket object expiration with lifecycle policies
         // if our expiration timeline is __long__ (measured in days). That's a 
         // reasonable backstop, in any case, so worth setting overall I think. 
-        let OptionalS3LifecycleDays = parseInt( this.options.aws.public.lifecycleDays );
+        let OptionalS3LifecycleDays = parseInt( options.aws.public.lifecycleDays );
         var params = {
             Bucket : this.publicBucket , 
             LifecycleConfiguration : {
