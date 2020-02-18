@@ -3,7 +3,7 @@ const DataSourceBase = require( __dirname + "/DataSourceBase.js" );
 
 class QueueSource extends DataSourceBase.DLLDataSourceBase {
 
-    constructor( options ) {
+    constructor( source , options ) {
 
         super( options );
 

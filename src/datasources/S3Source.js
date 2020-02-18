@@ -11,7 +11,7 @@ const returnURLExe = {
 
 class S3Source extends DataSourceBase.RowDataSourceBase {
 
-    constructor( options ) {
+    constructor( source , options ) {
 
         super( options );
 

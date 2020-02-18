@@ -52,7 +52,12 @@ module.exports = class SharedBaseClass {
     getHash() {
         var current_date = ( new Date() ).valueOf().toString();
         var random = Math.random().toString();
-        return String( _crypto.createHash('sha1').update( current_date + random ).digest('hex') );
+        return String( _crypto.createHash( 'sha1' ).update( current_date + random ).digest('hex') );
+    }
+
+    // get a "secret" hex code
+    getSecret() {
+        return _crypto.randomBytes( 48 ).toString('hex');
     }
 
 }

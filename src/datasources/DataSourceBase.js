@@ -22,18 +22,17 @@ const SharedBaseClass = require( __dirname + "/../SharedBaseClass.js" );
 
 class DataSourceBase extends SharedBaseClass {
 
-	constructor( options ) {
+	constructor( source , options ) {
 
 		super( options );
 
+        // create key and secret; idea is that secret is provided once and only once
         if( options ) {
-            if( "key" in options && options.key ) { 
-                this.key = options.key; 
-            } else {
-                this.key  = this.getHash();
-            }
+            this.key = ( "key" in options && options.key ? options.key : this.getHash() );
+            this.secret = ( "secret" in options && options.secret ? options.secret : this.getSecret() );
         } else {
-            this.key  = this.getHash();
+            this.key = this.getHash();
+            this.secret = this.getSecret();
         }
 
         this.rows = [];
@@ -44,6 +43,18 @@ class DataSourceBase extends SharedBaseClass {
         this.samplers = {};
 
 	}
+
+    // 
+    info() {
+        return {
+            name    : this.name , 
+            key     : this.key , 
+            type    : this.type , 
+            created : this.created , 
+            description : this.desc , 
+            samplers : Object.keys( this.samplers ) , 
+        };
+    }
 
     // TRACKING WITH ATTACHED SAMPLERS
 

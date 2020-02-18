@@ -1,0 +1,6 @@
+{
+	"type" : "random" , 
+	"options" : {
+		"strategy" : "exponential"
+	}
+}

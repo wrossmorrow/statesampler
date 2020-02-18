@@ -211,10 +211,28 @@ class SecuredS3RandomSampler extends RandomSampler {
                 } ]
             }
         };
-        this.s3.putBucketLifecycleConfiguration( params ).promise()
-            .catch( err => { 
+
+        this.s3.getBucketLifecycleConfiguration( { Bucket : this.publicBucket } ).promise()
+            .then( data => {
+                let updateLifecycleConfiguration = true;
+                data.Rules.forEach( r => {
+                    if( "Expiration" in r ) {
+                        if( "Days" in r.Expiration ) {
+                            if( parseInt( r.Expiration.Days ) <= params.LifecycleConfiguration.Rules[0].Expiration.Days ) {
+                                updateLifecycleConfiguration = false;
+                            }
+                        }
+                    }
+                } );
+                if( updateLifecycleConfiguration ) {
+                    this.s3.putBucketLifecycleConfiguration( params ).promise();
+                }
+            } ).catch( err => {
                 console.log( err , err.stack ); 
             } );
+        /*
+        
+        */
 
         // initialize the buffers of copies, so we aren't waiting for copies to be made
         // requires bucket to exist (and be write-accessible under the credentials)

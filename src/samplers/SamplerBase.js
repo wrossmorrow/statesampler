@@ -24,14 +24,6 @@ const SharedBaseClass = require( __dirname + "/../SharedBaseClass.js" );
 function sampleRow_u( counts , samples ) { 
     return Math.floor( Math.random() * counts.length );
 }
-/*
-var R = 0 , maxS = -1.0 , tmp = 0.0;
-counts.forEach( (c,i) => {
-    tmp = Math.random();
-    if( tmp > maxS ) { maxS = tmp; R = i; }
-} );
-return R;
-*/
 
 // sample _balanced_ uniformly... if we keep a histogram we could do this more efficiently
 // by first sampling a "bin" and then a random element from that "bin"... should be equivalent
@@ -81,18 +73,14 @@ module.exports = class SamplerBase extends SharedBaseClass {
     	// initialize superclass
     	super( options );
 
-    	// create or store key
-    	if( options ) {
-	    	if( "key" in options && options.key ) { 
-	    		this.key = options.key; 
-	    	} else if( "survey" in options && options.survey ) { 
-	    		this.key = options.survey; 
-	    	} else {
-	    		this.key = this.getHash();
-	    	}
-    	} else {
-    		this.key = this.getHash();
-    	}
+        // create key and secret; idea is that secret is provided once and only once
+        if( options ) {
+            this.key = ( "key" in options && options.key ? options.key : this.getHash() );
+            this.secret = ( "secret" in options && options.secret ? options.secret : this.getSecret() );
+        } else {
+            this.key = this.getHash();
+            this.secret = this.getSecret();
+        }
 
     	// store dataset (reference)
         this.dataset = dataset;
@@ -104,9 +92,10 @@ module.exports = class SamplerBase extends SharedBaseClass {
 
     info() {
     	return {
-    		type    : this.type , 
+            name    : this.name , 
+            key     : this.key , 
+            type    : this.type , 
     		created : this.created , 
-    		name    : this.name , 
     		description : this.desc , 
     		samples : this.samples , 
     	};

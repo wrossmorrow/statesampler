@@ -4,7 +4,7 @@
  * 
  *  statesampler API server
  *
- *  Copyright 2018-2019 William Ross Morrow and Stanford University
+ *  Copyright 2018+ William Ross Morrow and Stanford University
  *
  *  Licensed under a modified Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -55,8 +55,6 @@ const protect = ( a , b ) => { return ( a ? a : b ); }
 
 const _config = require( 'config.json' )( protect( process.env.CONF_FILE , './../conf.json' ) );
 
-var port = protect( process.env.PORT , protect( _config.port , 5000 ) );
-
 var defaultSamplingStrategy = protect( process.env.STRATEGY , protect( _config.strategy , 'b' ) );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
@@ -94,6 +92,10 @@ var datasets = {} , samplers = {};
 
 // How long do we hold these for? There are local storage "concerns", yeah? 
 
+// a function to call for coordination; initialized as a no-op, will defined by a master 
+// thread when appropriate
+var coordinate = () => {};
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -104,7 +106,7 @@ var datasets = {} , samplers = {};
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-// "internal", recursive call. don't invoke directly, use "firstOfIn"
+// "internal", recursive call. DONT INVOKE DIRECTly, use "firstOfIn"
 const _firstOfIn = ( obj , keys , i ) => {
     if( i >= keys.length ) { return null; }
     if( keys[i] in obj ) { return obj[keys[i]]; }
@@ -123,6 +125,11 @@ const firstOfIn = ( obj , keys ) => { _firstOfIn( obj , keys , 0 ); }
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// generic response when a sampler was not found
+const notAuthorized = ( req , res ) => {
+    res.status(403).send( "NotAuthorized: you are not allowed to make this call.\n" );
+}
 
 // generic response when a sampler was not found
 const datasetNotFound = ( req , res ) => {
@@ -144,8 +151,22 @@ const samplerNotFound = ( req , res ) => {
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+// load data 
+const loadData = ( data ) => {
+    return new Promise( ( resolve , reject ) => {
+        try {
+            var D = new ( Datasources[data.type] )( data.source , data.options );
+            datasets[ D.key ] = D; // create data set in the local store
+            D.load() // actually "load" the data, whatever that means for the source
+                .then( () => { resolve( { key : D.key , secret : D.secret } ); } )
+                .catch( reject );
+        } catch( err ) { reject( err ); }
+    } );
+
+};
+
 // load data
-const loadData = ( req , res ) => {
+const loadDataRequest = ( req , res ) => {
 
     if( ! req.body.type ){
         return res.status(400).send( "BadRequest: loading data requires a request body with a \"type\" field." );
@@ -155,37 +176,49 @@ const loadData = ( req , res ) => {
         return res.status(400).send( `BadRequest: "${req.body.type}" is not a defined data source.` );
     }
 
-    // attempt to create the dataset from requested source
-    var D;
-    try {
-        D = new (Datasources[req.body.type])( req.body.options );
-    } catch( err ) {
-        console.error( err )
-        return res.status( err.code ).send( err.message ); 
-    }
+    // default empty source
+    if( ! ( "source" in req.body ) ) { req.body.source = ""; }
 
-    // respond after construction? or after load? I think after load. 
-    // res.send( D.key );
+    // default empty options
+    if( ! ( "options" in req.body ) ) { req.body.options = {}; }
 
-    // create data SET
-    datasets[ D.key ] = D;
+    // don't let people request with defined secrets
+    if( "secret" in req.body.options ) { delete req.body.options.secret; }
 
-    var onError = ( err ) => {
-        console.log( err.toString() ); 
-        res.status(500).send( err.toString() ); // ONLY IF WE HAVEN'T ALREADY RESPONDED
+    // define data to load using
+    let data = {
+        request : 'dataset' ,
+        type    : req.body.type , 
+        source  : req.body.source , 
+        options : req.body.options , 
     };
 
-    var onLoad = (  ) => {
-        res.send( D.key ); // ONLY IF WE HAVEN'T ALREADY RESPONDED
-    };
-
-    // actually "load" the data, whatever that means for the source
-    D.load().then( onLoad ).catch( onError );
+    // ok, actually load the data
+    loadData( data )
+        .then( ( result ) => {
+            res.send( result );
+            data.options.key = result.key; // we have to make sure keys are shared...
+            data.options.secret = result.secret; // we have to make sure secrets are shared...
+            coordinate( data );
+        } ).catch( err => {
+            res.status(500).send( err.toString() ); // ONLY IF WE HAVEN'T ALREADY RESPONDED
+        } );
 
 };
 
+// attempt to create the sampler, store in our samplers object and resolve
+const createSampler = ( data ) => {
+    return new Promise( ( resolve , reject ) => {
+        try {
+            var S = new ( Samplers[data.type] )( datasets[data.dataset] , data.options );
+            samplers[ S.key ] = S;
+            resolve( { key : S.key , secret : S.secret } );
+        } catch( err ) { reject(err); }
+    } );
+};
+
 // create a sampler for a dataset
-const createSampler = ( req , res ) => {
+const createSamplerRequest = ( req , res ) => {
 
     if( ! datasets[req.params.did] ) { 
         return datasetNotFound( req , res ); 
@@ -198,272 +231,357 @@ const createSampler = ( req , res ) => {
     if( ! ( req.body.type in Samplers ) ) {
         return res.status(400).send( `BadRequest: "${req.body.type}" is not a defined sampler.` );
     }
-    
-    // attempt to create the sampler
-    var S;
-    try {
-        S = new (Samplers[req.body.type])( datasets[req.params.did] , req.body.options );
-    } catch( err ) {
-        console.log( err )
-        return res.status( err.code ).send( err.message ); 
+
+    // default empty options
+    if( ! ( "options" in req.body ) ) { req.body.options = {}; }
+
+    // don't let people request with defined secrets
+    if( "secret" in req.body.options ) {
+        delete req.body.options.secret;
     }
 
-    // respond after construction (no "loading")
-    res.send( S.key );
+    let data = {
+        request : 'sampler' ,
+        type    : req.body.type , 
+        dataset : req.params.did , 
+        options : req.body.options
+    };
 
-    // store in our samplers object
-    samplers[ S.key ] = S;
+    createSampler( data )
+        .then( ( result ) => {
+            res.send( result );
+            data.options.key = result.key; // we have to make sure keys are shared...
+            data.options.secret = result.secret; // we have to make sure secrets are shared...
+            coordinate( data );
+        } ).catch( err => {
+            return res.status( err.code ).send( err.message ); 
+        } );
 
 };
 
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * 
- * SERVER SETUP AND MIDDLEWARE
+ * 
  * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-var app = _express();
+const launchServer = ( port ) => {
 
-app.set( 'port' , port );
-app.use( _bodyParser.json() );
-app.use( _bodyParser.urlencoded({ extended: false }) );
-app.use( _cors() );
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * SERVER SETUP AND MIDDLEWARE
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-// logging middleware
-app.use( function( req , res , next ) { 
+    var app = _express();
 
-    const start = Date.now() / 1000.0; 
-    req.key = _crypto.randomBytes(12).toString('hex');
+    app.set( 'port' , port );
+    app.use( _bodyParser.json() );
+    app.use( _bodyParser.urlencoded({ extended: false }) );
+    app.use( _cors() );
 
-    logger( "REQLOG," + req.key 
-                    + "," + req.method.toUpperCase()
-                    + "," + req.url );
+    // logging middleware
+    app.use( function( req , res , next ) { 
 
-    const send_ = res.send;
-    res.send = function( object ) { 
-        const now = Date.now() / 1000.0;
-        logger(  "RESLOG," + req.key 
+        const start = Date.now() / 1000.0; 
+        req.key = _crypto.randomBytes(12).toString('hex');
+
+        logger( "REQLOG," + process.pid 
+                        + "," + req.key 
                         + "," + req.method.toUpperCase()
-                        + "," + req.url
-                        + "," + res.statusCode
-                        + "," + start.toFixed(3) 
-                        + "," + now.toFixed(3) 
-                        + "," + (now-start).toFixed(3) );
-        send_.call( res , object );
-    };
+                        + "," + req.url );
 
-    next();
+        const send_ = res.send;
+        res.send = function( object ) { 
+            const now = Date.now() / 1000.0;
+            logger(  "RESLOG," + process.pid 
+                            + "," + req.key 
+                            + "," + req.method.toUpperCase()
+                            + "," + req.url
+                            + "," + res.statusCode
+                            + "," + start.toFixed(3) 
+                            + "," + now.toFixed(3) 
+                            + "," + (now-start).toFixed(3) );
+            send_.call( res , object );
+        };
 
-} );
+        next();
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * 
- * GENERIC SERVER ROUTES
- * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+    } );
 
-// app.options('/', _cors(corsOptions) , ... ) for more restrictive CORS settings
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * GENERIC SERVER ROUTES
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-// a blank request to serve as info
-app.get( '/' , (req,res) => {
-    res.send( "STATESAMPLER server, to assist with sampling content for online surveys." ); 
-} );
+    // app.options('/', _cors(corsOptions) , ... ) for more restrictive CORS settings
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * 
- * DATASET ROUTES
- * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+    // a blank request to serve as info
+    app.get( '/' , (req,res) => {
+        res.send( "STATESAMPLER server, to assist with sampling content for online surveys." ); 
+        coordinate( { request : '/' } );
+    } );
 
-// data loading routes
-app.put(  '/data' , loadData ); 
-app.post( '/data' , loadData ); 
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * DATASET ROUTES
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-// get data (ids only?)
-app.get( '/data' , ( req , res ) => {
-    res.json( Object.keys( datasets ) );
-} );
+    // get data (ids only?)
+    app.get( '/data' , ( req , res ) => {
+        res.json( Object.keys( datasets ) );
+    } );
 
-// get data (full content)
-app.get( '/data/:did' , ( req , res ) => {
-    if( ! datasets[req.params.did] ) {
-        return datasetNotFound( req , res ); 
+    // data loading routes
+    app.put(  '/data' , loadDataRequest ); // (coordinated across other servers)
+    app.post( '/data' , loadDataRequest ); // (coordinated across other servers)
+
+    // get data (full content)
+    app.get( '/data/:did' , ( req , res ) => {
+        if( ! datasets[req.params.did] ) { return datasetNotFound( req , res ); }
+        res.json( datasets[req.params.did].info() );
+    } );
+
+    // get data row (debugging)
+    app.get( '/data/:did/row/:row' , ( req , res ) => {
+        if( ! datasets[req.params.did] ) { return datasetNotFound( req , res ); }
+        res.json( datasets[req.params.did].getRow( parseInt( req.params.row ) ) );
+        // coordinate across other server instances? 
+    } );
+
+    // delete a dataset
+    app.delete( '/data/:did' , ( req , res ) => {
+        if( ! datasets[req.params.did] ) { return datasetNotFound( req , res ); }
+        if( ! "secret" in req.body ) { return notAuthorized( req , res ); }
+        if( datasets[req.params.did].secret !== req.body.secret ) { return notAuthorized( req , res ); }
+        delete datasets[req.params.did];
+        res.send( );
+        // coordinate across other server instances? 
+    } );
+
+    // get dataset header that will be used to label response fields
+    app.get( '/header/:did' , ( req , res ) => { 
+        if( ! datasets[req.params.did] ) { return datasetNotFound( req , res ); }
+        res.json( datasets[req.params.did].header ); 
+    } );
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * SAMPLER ROUTES
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    // get summary data about samplers
+    app.get( '/samplers' , ( req , res ) => {
+        if( "types" in req.query ) {
+            res.json( Object.keys( Samplers ) );
+        } else {
+            var r = Object.values( samplers ).map( S => ( { id : S.key , name : S.name , desc : S.desc } ) );
+            res.json( r );
+        }
+    } );
+
+    // create a sampler for a dataset (referenced by it's ID)
+    app.put(  '/sampler/:did' , createSamplerRequest ); // (coordinated across other servers)
+    app.post( '/sampler/:did' , createSamplerRequest ); // (coordinated across other servers)
+
+    // PLACEHOLDER: get summary data about a sampler
+    app.get( '/sampler/:sid' , ( req , res ) => {
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        res.json( samplers[req.params.sid].info() );
+    } );
+
+    // update properties of a sampler
+    app.patch( '/sampler/:sid' , ( req , res ) => {
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+
+        if( ! "secret" in req.body ) { return notAuthorized( req , res ); }
+        if( samplers[req.params.sid].secret !== req.body.secret ) { return notAuthorized( req , res ); }
+        res.send();
+        // coordinate across other server instances? 
+    } );
+
+    // delete a sampler
+    app.delete( '/sampler/:sid' , ( req , res ) => {
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        if( ! "secret" in req.body ) { return notAuthorized( req , res ); }
+        if( samplers[req.params.sid].secret !== req.body.secret ) { return notAuthorized( req , res ); }
+        delete samplers[req.params.sid];g
+        res.send( );
+        // coordinate across other server instances? 
+    } );
+
+    // sample an actual row (requires sheet loaded)
+    app.get( '/sample/:sid' , ( req , res ) => {
+
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+
+        var sid = req.params.sid;
+
+        // get survey, response, and/or question ids if they exist in the query params
+        var rid = firstOfIn( req.query , ["r","rid","response"] ) , 
+            qid = firstOfIn( req.query , ["q","qid","question"] ) ;
+
+        // construct sampler response (Promise-based? that would be general...)
+        var smpl = samplers[req.params.sid].sample( rid , qid );
+        if( smpl === null ) { res.status( 400 ).send( ); }
+        else { 
+            if( Promise.resolve( smpl ) === smpl ) { // returned value is a promise
+                smpl.then( data => { res.json( data ); } )
+                    .catch( err => { res.status(500).send(err.toString()); } )
+            } else { res.json( smpl ); } // returned value is NOT a promise
+
+            // coordinate sample with other server instances?
+
+        }
+
+    } );
+
+    // PLACEHOLDER: feedback about _choices made_ in response to samples drawn
+    app.post( '/choices/:sid' , ( req , res ) => {
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        res.send();
+        // coordinate across other server instances? 
+    } );
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * INFORMATION ROUTES
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    // get a sampler's vector of counts (debugging, basically)
+    app.get( '/counts/:sid' , ( req , res ) => { 
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        res.json( samplers[req.params.sid].counts ); 
+    } );
+
+    // reset a sampler's counts vector. Same effect as reloading the sheet on which the data
+    // is being drawn? 
+    app.post( '/reset/:sid' , (req,res) => { 
+        if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        if( ! "secret" in req.body ) { return notAuthorized( req , res ); }
+        if( samplers[req.params.sid].secret !== req.body.secret ) { return notAuthorized( req , res ); }
+        samplers[req.params.sid].reset();
+        res.send();
+    } );
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * CLIENT SIDE ERROR HANDLING
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    // PLACEHOLDER: error post back method; this is so we write client-side errors back into the 
+    // server log or database. need to actually store the data somewhere... 
+    app.post( '/error' , (req,res) => { 
+        res.send(); 
+    } );
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * 
+     * ACTUAL SERVER LAUNCH
+     * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+    const onListen = () => logger( `Process ${process.pid} listening on port ${port}` );
+
+    var server = undefined;
+    if( _config.ssl ) {
+        server = _https.createServer( {
+            key     : _fs.readFileSync( _config.ssl.key  ) ,
+            cert    : _fs.readFileSync( _config.ssl.cert ) ,
+            ca      : _fs.readFileSync( _config.ssl.csr  ) ,
+            requestCert : false ,
+            rejectUnauthorized : false
+        } , app );
+        server.listen( port , onListen );
+    } else {
+        server = app.listen( port , onListen );
     }
-    res.json( datasets[req.params.did] );
-} );
 
-// get data row (debugging)
-app.get( '/data/:did/row/:row' , ( req , res ) => {
-    if( ! datasets[req.params.did] ) {
-        return datasetNotFound( req , res ); 
-    }
-    res.json( datasets[req.params.did].getRow( parseInt( req.params.row ) ) );
-} );
-
-// delete a dataset
-app.delete( '/data/:did' , ( req , res ) => {
-    if( ! datasets[req.params.did] ) {
-        return datasetNotFound( req , res ); 
-    }
-    delete datasets[req.params.did];
-    res.send( );
-} );
-
-// get dataset header that will be used to label response fields
-app.get( '/header/:did' , ( req , res ) => { 
-    if( ! datasets[req.params.did] ) {
-        res.status( 404 ).send( "DatasetNotFound: " );
-        return;
-    }
-    res.json( datasets[req.params.did].header ); 
-} );
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * 
- * SAMPLER ROUTES
+ * 
  * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-// get summary data about samplers
-app.get( '/samplers' , ( req , res ) => {
-    var r = Object.values( samplers ).map( S => ( { id : S.key , name : S.name , desc : S.desc } ) );
-    res.json( r );
-} );
+module.exports = {
 
-// create a sampler for a dataset (referenced by it's ID)
-app.put(  '/sampler/:did' , createSampler ); 
-app.post( '/sampler/:did' , createSampler );
+    launch : launchServer , 
 
-// PLACEHOLDER: get summary data about a sampler
-app.get( '/sampler/:sid' , ( req , res ) => {
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    res.json( samplers[req.params.sid].info() );
-} );
+    coord  : ( f ) => { 
+        coordinate = ( d ) => {
+            logger( `coordinate call "${d.request}" from process "${process.pid}"` );
+            f( d );
+        };
+    } , 
 
-// update properties of a sampler
-app.patch( '/sampler/:sid' , ( req , res ) => {
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    res.send();
-} );
+    align  : ( d ) => {
 
-// delete a sampler
-app.delete( '/sampler/:sid' , ( req , res ) => {
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    delete samplers[req.params.sid];
-    res.send( );
-} );
+        logger( `align request "${d.request}" in process "${process.pid}"` );
 
-// sample an actual row (requires sheet loaded)
-app.get( '/sample/:sid' , ( req , res ) => {
+        if( /^sample$/.test( d.request ) ) {
 
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
+        } else if( /^dataset$/.test( d.request ) ) {
 
-    // get survey, response, and/or question ids if they exist in the query params
-    
-    //var sid = ( "survey"   in req.query ? req.query.survey   : ( "s" in req.query ? req.query.s : null ) ); 
-    //var rid = ( "response" in req.query ? req.query.response : ( "r" in req.query ? req.query.r : null ) ); 
-    //var qid = ( "question" in req.query ? req.query.question : ( "q" in req.query ? req.query.q : null ) ); 
+            loadData( d )
+                .then( () => {
+                    logger( "coordinated build of dataset succeeded" );
+                } ).catch( console.log );
 
-    var sid = firstOfIn( req.query , ["s","sid", "survey" ] ) , // is this used? 
-        rid = firstOfIn( req.query , ["r","rid","response"] ) , 
-        qid = firstOfIn( req.query , ["q","qid","question"] ) ;
+        } else if( /^sampler$/.test( d.request ) ) {
 
-    // construct sampler response (Promise-based? that would be general...)
-    var smpl = samplers[req.params.sid].sample( rid , qid );
-    if( smpl === null ) { res.status( 400 ).send( ); }
-    else { 
-        if( Promise.resolve( smpl ) === smpl ) { // returned value is a promise
-            smpl.then( data => { res.json( data ); } )
-                .catch( err => { res.status(500).send(err.toString()); } )
-        } else { res.json( smpl ); }
+            createSampler( d )
+                .then( () => {
+                    logger( "coordinated build of sampler succeeded" );
+                } ).catch( console.log );
+
+        } else {
+
+        }
     }
-
-} );
-
-// PLACEHOLDER: feedback about _choices made_ in response to samples drawn
-app.post( '/choices/:sid' , ( req , res ) => {
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    res.send();
-} );
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * 
- * INFORMATION ROUTES
- * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-// get a sampler's vector of counts (debugging, basically)
-app.get( '/counts/:sid' , ( req , res ) => { 
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    res.json( samplers[req.params.sid].counts ); 
-} );
-
-// reset a sampler's counts vector. Same effect as reloading the sheet on which the data
-// is being drawn? 
-app.post( '/reset/:sid' , (req,res) => { 
-    if( ! ( req.params.sid in samplers ) ) { return samplerNotFound( req , res ); }
-    samplers[req.params.sid].reset();
-    res.send();
-} );
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * 
- * CLIENT SIDE ERROR HANDLING
- * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-// PLACEHOLDER: error post back method; this is so we write client-side errors back into the 
-// server log or database. need to actually store the data somewhere... 
-app.post( '/error' , (req,res) => { 
-    res.send(); 
-} );
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * 
- * ACTUAL SERVER LAUNCH
- * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-var server = undefined;
-if( _config.ssl ) {
-    server = _https.createServer( {
-        key     : _fs.readFileSync( _config.ssl.key  ) ,
-        cert    : _fs.readFileSync( _config.ssl.cert ) ,
-        ca      : _fs.readFileSync( _config.ssl.csr  ) ,
-        requestCert : false ,
-        rejectUnauthorized : false
-    } , app );
-    server.listen( port , () => logger( "Listening on port " + port ) );
-} else {
-    server = app.listen( port , () => logger( "Listening on port " + port ) );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 

@@ -1,0 +1,11 @@
+{
+	"type" : "json" , 
+	"options" : {} , 
+	"source" : [
+		{"Row":2,"A":"1","B":"some","C":"the","D":"over"} , 
+		{"Row":3,"A":"2","B":"thing","C":"quick","D":"the"} ,
+		{"Row":4,"A":"3","B":"here","C":"brown","D":"pretty"} , 
+		{"Row":5,"A":"4","B":"is","C":"fox","D":"lazy"} ,
+		{"Row":6,"A":"5","B":"weird","C":"jumped","D":"dog"} 
+	]
+}

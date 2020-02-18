@@ -118,7 +118,7 @@ const parseGSheetSpec = ( spec ) => {
 
 class GSheetSource extends DataSourceBase.RowDataSourceBase {
 
-    constructor( options ) {
+    constructor( source , options ) {
 
         super( options );
 

@@ -37,34 +37,14 @@ const SamplerBase = require( __dirname + "/SamplerBase.js" );
 // to "sufficiently influence" the sampler properties? 
 // 
 
-class RandomSampler extends SamplerBase {
+class PureRandomSampler extends SamplerBase {
 
     constructor( dataset , options ) {
-
+        if( "strategy" in options ) { delete options.strategy; }
         super( dataset , options );
-
         this.smplfcn = this.sampleRow_u;
-        if( options ) {
-            if( "strategy" in options && options.strategy ) {
-                this.define( options.strategy );
-            }
-        }
-
         this.noRepeats = true;
-
-        this.reset(); // this isn't called by super, right? have to exxplicitly invoke?
-
-    }
-
-    // actually define a sampler
-    define( strategy ) {
-        switch( strategy.charAt(0) ) { 
-            case 'u' : this.smplfcn = this.sampleRow_u; break;
-            case 'b' : this.smplfcn = this.sampleRow_b; break;
-            case 'e' : this.smplfcn = this.sampleRow_e; break;
-            case 'r' : this.smplfcn = this.sampleRow_r; break;
-            default  : return;
-        }
+        this.reset(); // this isn't called by super, right? have to explicitly invoke?
     }
     
     // "reset", by clearing samples, counts (super), sampled, and the look-ahead queue
@@ -111,8 +91,8 @@ class RandomSampler extends SamplerBase {
 
 
 module.exports = {
-    class : RandomSampler , 
-    nicknames : [ "random" ] , 
+    class : PureRandomSampler , 
+    nicknames : [ "uniform" ] , 
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
