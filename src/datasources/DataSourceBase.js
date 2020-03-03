@@ -26,15 +26,6 @@ class DataSourceBase extends SharedBaseClass {
 
 		super( options );
 
-        // create key and secret; idea is that secret is provided once and only once
-        if( options ) {
-            this.key = ( "key" in options && options.key ? options.key : this.getHash() );
-            this.secret = ( "secret" in options && options.secret ? options.secret : this.getSecret() );
-        } else {
-            this.key = this.getHash();
-            this.secret = this.getSecret();
-        }
-
         this.rows = [];
         this.recs = {};
         this.type = "none";
@@ -109,7 +100,7 @@ class RowDataSourceBase extends DataSourceBase {
 }
 
 // a key-value store
-class KeyDataSourceBase extends DataSourceBase {
+class KVPDataSourceBase extends DataSourceBase {
 
     // 
     constructor( options ) {
@@ -147,7 +138,7 @@ class KeyDataSourceBase extends DataSourceBase {
 }
 
 // a singly linked list data source, based on key-value store
-class SLLDataSourceBase extends KeyDataSourceBase {
+class SLLDataSourceBase extends KVPDataSourceBase {
 
     constructor( options ) {
 
@@ -162,7 +153,7 @@ class SLLDataSourceBase extends KeyDataSourceBase {
 }
 
 // a doubly linked list data source, based on key-value store
-class DLLDataSourceBase extends KeyDataSourceBase {
+class DLLDataSourceBase extends KVPDataSourceBase {
 
     constructor( options ) {
 
@@ -319,7 +310,7 @@ class DLLDataSourceBase extends KeyDataSourceBase {
 module.exports = {
     DataSourceBase    : DataSourceBase , 
     RowDataSourceBase : RowDataSourceBase , 
-    KeyDataSourceBase : KeyDataSourceBase , 
+    KVPDataSourceBase : KVPDataSourceBase , 
     DLLDataSourceBase : DLLDataSourceBase , 
 }
 

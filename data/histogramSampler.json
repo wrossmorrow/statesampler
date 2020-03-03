@@ -1,0 +1,6 @@
+{
+	"type" : "HistogramSampler" , 
+	"options" : {
+		"strategy" : "exponential"
+	}
+}

@@ -4,6 +4,30 @@ A simple-ish `node.js` server to sample to provide data for survey questions. Th
 
 You can see a live demo [here](https://www.wrossmorrow.org/statesampler/demo.html). 
 
+# Motivation
+
+Here's the motivating use case: 
+
+Say you have 50 items for people to evaluate on some criteria. The criteria and questions about them are the same, but the content should differ based on which of the items is being evaluated. Say you want 10 observations per item. You need 500 observations and, should you allow 5 evaluations per respondent, could invite 100 respondents to do your evaluations. 
+
+Now, you could assign items to respondents as follows: assign items 1-5 to respondents 1-10, 6-10 to 11-20, and so on (possibly after randomizing the order of items prior to assignment). What's wrong with that becomes apparent when we realize that respondents will _drop out_, either from boredom, network trouble, or just something else came up and interferes with someone completing their survey. Without dropout, we would have exactly 10 evaluations per item; with it we won't. How can we solve this problem? 
+
+Well, we could allow respondents to evaluate a variable number of items. When someone drops out, we could admit another respondent to "fill in" what they didn't evaluate. This would change the character of the experimental instrument across respondents, however. And how many items to evaluate is too few? 1? 2? This seems flawed; if we ask _most_ respondents 5 questions, we should ask them _all_ 5 questions. Without getting into too many details, this is already starting to seem complicated. And we're not likely to escape having more than 500 evaluations and not _exactly_ 10 evaluations per item. 
+
+What if we took a different approach? Specifically, what if we sampled each item _randomly_, instead of from a plan? Sampling uniformly is probably a bad idea but what if we sampled using a probability distribution that biases samples towards equalized counts? Particularly, what if we sampled according to 
+
+```
+	U^{-1}(  )
+```
+
+
+    var R = 0 , maxS = -1.0 , tmp = 0.0;
+    counts.forEach( (c,i) => {
+        tmp = Math.random() * ( 1.0 - Math.min( 1.0 , c/samples ) );
+        if( tmp > maxS ) { maxS = tmp; R = i; }
+    } );
+    return R;
+
 # Overview
 
 The broad architecture is as follows: There are `datasource`s that link to and import datasets and `sampler`s that sample over datasources. You use these constructs to make API calls that return rows/records from the datasets to clients running a survey according to the rules spelled out in a `sampler`. 
@@ -14,7 +38,7 @@ Right now, you can specify data from
 * Google Sheets
 * An `S3` Bucket
 
-We're also working on a queue `datasource`, where data may be coming in or out during the sampling process. The code is Object-Oriented and it should be relatively easy to define new `datasource`s. See below. 
+We're also working on a queue `datasource`, where data may be coming in or out during the sampling process. In general the code is Object-Oriented and it should be relatively easy to define new `datasource`s. 
 
 You can define a `sampler` over any dataset type. Included `sampler`s are 
 
@@ -23,14 +47,13 @@ You can define a `sampler` over any dataset type. Included `sampler`s are
 * "secured" sampling via `S3`. 
 
 As with `datasource`s, constructing a new `sampler` is probably made easier by Object-Oriented code. See below. 
-
 Ok, *so what's the big deal?* Random sampling is easy! Just load all your data and... sample randomly. 
 
 Here's the catch: `statesampler` isn't meant for _pure_ random sampling, although it includes a `PureRandomSampler` that does that. `statesampler` is _really_ meant for sampling randomly in structured ways that require information from _all_ survey responses. Not the actual question responses per se, but at least which items have been sent out and how many times. This server was _really_ written to enable question generation when the _number_ of times a row was sampled is important. If this is so, we _have_ to maintain a "global state" across rows served, requiring a central server. 
 
-Allright, this "central server" could be your datasource itself, like your Google Sheet, if you can write back to it _from the client code drawing the samples_. We found this hard to do, as Google Sheets require valid user OAuth tokens to write even to public sheets, meaning all your survey respondents would have to log into Google to take your survey. Probably not cool. This is not to mention that _you_ would have to write client code that keeps each client's counts of samples up-to-date as other clients change the count values, which doesn't sound fun or efficient. Other sources of data are likely to have similar authorization and tracking problems. 
+Allright, this "central server" could be your datasource itself, like your Google Sheet, if you can write back to it _from the client code drawing the samples_. We found this hard to do, as Google Sheets require valid user OAuth tokens to write, _even to public sheets_, meaning all your survey respondents would have to log into Google to take your survey. Probably not cool. This is not to mention that _you_ would have to write client code that keeps each client's counts of samples up-to-date as other clients change the count values, which doesn't sound fun or efficient. Other sources of data are likely to have similar authorization and tracking problems. 
 
-`statesampler`s model is different: _You_ (a survey administrator) provide credentials to load your data before your survey is deployed, not survey clients during a survey. That way you aren't distributing credentials or askinng for them during a survey. _They_ (the survey clients) get to sample from the data, just by asking `statesampler` for values. _It_ (`statesampler`) tracks which things were sampled in what surveys for you, so all your survey clients have to do is ask for the data for any given question. Done. 
+`statesampler`s model is different: _You_ (a survey administrator) provide credentials to load your data before your survey is deployed, not survey clients during a survey. That way you aren't distributing credentials or asking for them during a survey. _They_ (the survey clients) get to sample from the data, just by asking `statesampler` for values. _It_ (`statesampler`) tracks which things were sampled in what surveys for you, so all your survey clients have to do is ask for the data for any given question. Done. 
 
 # Usage/Workflow
 
@@ -285,46 +308,72 @@ In what follows we give a brief overview of the API calls `statesampler` uses.
 
 # Datasources
 
-## CSV/JSON
+## Base Class
+
+We define a universal base class `DataSourceBase` to underlie any particular data source. Furthermore, on top of that we define `RowData` (standard, tabular data), `KVPData` (key-value pair), and `DLLData` (doubly-linked list) data sources. These base classes define placeholders or useful implementations of methods like `info`, `load`, `size`, `get`, and `pop`. 
+
+## CSV
+
+You can refer to this datasource with `CSVSource` or with the nicknames `csv` or `CSV`. 
+
+## JSON
+
+The `JSONSource` data source classes inherits from the `RowDataSourceBase` class. 
+
+As briefly covered above, you can literally send `json` in ` request body as the value of a `source` field, or you can provide a URL in the `source` field where `statesampler` should go get the data. 
+
+You can refer to this datasource with `JSONSource` or with the nicknames `json` or `JSON`. 
 
 ## Google Sheets
+
+The `GSheetSource` class inherits from the `RowDataSourceBase` class. 
 
 Let's say you want to hook up `statesampler` to a Google Sheet. Before you launch an experiment, you need to
 
 1. Initialize a Google Sheets API object with an API key you get from enabling the sheets API in your google account
 2. Load a particular sheet by specifying a `spreadsheetId` and `range` 
 3. Optionally load a header, from the same spreadsheet or a different one, used to encode responses
-4. Specify a sampling method, the default being the "balanced-uniform" strategy
 
-During an experiment, you can
+The `GSheetSource` class wraps these tasks from a suitably defined `options` field sent to `statesampler`. 
 
-5. Sample reviews one-by-one, returning data that can be used to construct questions in Qualtrics (_during_ experiment)
-6. Report client-side errors during question loads back to the experimenter (_during_ experiment)
+You can refer to this datasource with `GSheetSource` or with the nicknames `gsheet` or `GSHEET`. 
 
 ## AWS S3
 
+`S3Source` inherits from the `RowDataSourceBase` class and allows specification of AWS `S3` as a datasource. 
+
+You can refer to this datasource with `S3Source` or with the nicknames `s3` or `S3`. 
 
 # Samplers
 
 ## PureRandomSampler
 
+`PureRandomSampler` is a wrapper around a uniform sampler. This isn't really a useful strategy, and is counter to the design purpose and philosophy behind `statesampler`. It's worth comparing against this sampling strategy easily, though, and even if you _can_ sample uniformly then `statesampler` offers an efficient way to make that happen. 
+
+You can refer to this sampler with `PureRandomSampler` or with the nickname `uniform`. 
+
 ## RandomSampler
 
 Our `RandomSampler` currently comes with four basic random sampling methods: 
 
-* standard-uniformly, 
+* standard-uniformly (see `PureRandomSampler` above), 
 * "balanced-uniformly" relative to some max count per item,
 * exponentially-weighted samples away from large counts, 
 * and reciprocally-weighted samples away from large counts
 
 As we've hinted, the first (uniformly sampling) is trivial to implement within standard `javascript`, although this is plausibly more efficient here because the server pre-loads all data in the sheet instead of every client loading it all. A client needs only ask for one row at a time, and thus loads only those relevant to it. 
 
+You can refer to this sampler with `RandomSampler` or with the nickname `random`. 
+
 ## DoESampler
 
+The `DoESampler` provides a different, more traditional approach for running an experiment. Here you can "plan" out which items particular respondents can see. 
+
+You can refer to this sampler with `DoESampler` or with the nickname `doe`, `DOE`, or `DoE`. 
 
 ## QueueSampler
 
-
+TBD
 
 # Interaction 
 

@@ -27,9 +27,16 @@ module.exports = class SharedBaseClass {
         this.name = "";
         this.desc = "";
     	if( options ) {
-	        if( "name" in options ) { this.name = options.name; }
-	        if( "desc" in options ) { this.desc = options.desc; }
-    	}
+            // name and options fields
+	        if( "name" in options ) { this.name = options.name ? options.name : "" ; }
+	        if( "desc" in options ) { this.desc = options.desc ? options.desc : "" ; }
+            // create key and secret; idea is that secret is provided once and only once
+            this.key = ( "key" in options && options.key ? options.key : this.getHash() );
+            this.secret = ( "secret" in options && options.secret ? options.secret : this.getSecret() );
+        } else {
+            this.key = this.getHash();
+            this.secret = this.getSecret();
+        }
     }
 
     setName( name ) { this.name = name; }
